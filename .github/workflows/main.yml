@@ -9,20 +9,21 @@ on:
 
 jobs:
   build:
-    name: Generate and Build iOS App Bundle
-    runs-on: macos-14
+    name: Generate Valid Project and Build IPA
+    runs-on: macos-13 
 
     steps:
-      # ১. রিপোজিটরি চেকআউট
+      # ১. কোড চেকআউট করা
       - name: Checkout Source Code
         uses: actions/checkout@v4
 
-      # ২. সম্পূর্ণ আইওএস অ্যাপ প্রজেক্ট ও সুইফট কোড জেনারেট করা
-      - name: Generate Complete iOS Project Structure
+      # ২. রানারের ভেতরেই আসল এক্সকোড প্রজেক্ট স্ট্রাকচার (.xcodeproj) তৈরি করা
+      - name: Generate True Xcode Project Structure
         run: |
           mkdir -p DWGViewer/DWGViewer
+          mkdir -p DWGViewer/DWGViewer.xcodeproj
           
-          # ContentView.swift ফাইল তৈরি (SwiftUI + Free CAD Viewer Engine)
+          # ContentView.swift ফাইল তৈরি (SwiftUI + Dynamic Theme + Free CAD Viewer)
           cat << 'EOF' > DWGViewer/DWGViewer/ContentView.swift
           import SwiftUI
           import UniformTypeIdentifiers
@@ -120,7 +121,7 @@ jobs:
                       <div class="box">
                           <h3>[CAD Canvas Engine]</h3>
                           <p style="color:#00ff00;">✔ \(fileURL.lastPathComponent)</p>
-                          <p style="font-size:12px; color:#aaa;">Free HTML5 Pipeline - Running successfully.</p>
+                          <p style="font-size:12px; color:#aaa;">Free HTML5 Pipeline - Loaded successfully.</p>
                       </div>
                   </body>
                   </html>
@@ -144,49 +145,190 @@ jobs:
           }
           EOF
 
-      # ৩. এক্সকোড রানার এনভায়রনমেন্ট ও এসডিকে রেডি করা
+          # ৩. এক্সকোড প্রজেক্ট মেটাডাটা (project.pbxproj) ইনলাইন জেনারেট করা যাতে Exit Code 64 ফিক্স হয়
+          cat << 'EOF' > DWGViewer/DWGViewer.xcodeproj/project.pbxproj
+          // !$*UTF8*$!
+          {
+              archiveVersion = 1;
+              classes = {};
+              objectVersion = 56;
+              objects = {
+                  /* Begin PBXBuildFile section */
+                  10010001 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10010003 /* ContentView.swift */; };
+                  10010002 /* DWGViewerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10010004 /* DWGViewerApp.swift */; };
+                  /* End PBXBuildFile section */
+
+                  /* Begin PBXFileReference section */
+                  10010003 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+                  10010004 /* DWGViewerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DWGViewerApp.swift; sourceTree = "<group>"; };
+                  10010005 /* DWGViewer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DWGViewer.app; sourceTree = BUILT_PRODUCTS_DIR; };
+                  /* End PBXFileReference section */
+
+                  /* Begin PBXFrameworksBuildPhase section */
+                  10010006 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+                  /* End PBXFrameworksBuildPhase section */
+
+                  /* Begin PBXGroup section */
+                  10010007 /* CustomGroup */ = {
+                      isa = PBXGroup;
+                      children = (
+                          10010003 /* ContentView.swift */,
+                          10010004 /* DWGViewerApp.swift */,
+                          10010005 /* DWGViewer.app */,
+                      );
+                      sourceTree = "<group>";
+                  };
+                  /* End PBXGroup section */
+
+                  /* Begin PBXNativeTarget section */
+                  10010008 /* DWGViewer */ = {
+                      isa = PBXNativeTarget;
+                      buildConfigurationList = 10010011 /* Build configuration list for PBXNativeTarget "DWGViewer" */;
+                      buildPhases = (
+                          10010010 /* Sources */,
+                          10010006 /* Frameworks */,
+                      );
+                      buildRules = ();
+                      dependencies = ();
+                      name = DWGViewer;
+                      productName = DWGViewer;
+                      productReference = 10010005 /* DWGViewer.app */;
+                      productType = "com.apple.product-type.application";
+                  };
+                  /* End PBXNativeTarget section */
+
+                  /* Begin PBXProject section */
+                  10010009 /* Project object */ = {
+                      isa = PBXProject;
+                      attributes = { LastUpgradeCheck = 1500; };
+                      buildConfigurationList = 10010014 /* Build configuration list for PBXProject "DWGViewer" */;
+                      compatibilityVersion = "Xcode 14.0";
+                      developmentRegion = en;
+                      hasScannedForEncodings = 0;
+                      knownRegions = (en, Base);
+                      mainGroup = 10010007 /* CustomGroup */;
+                      productRefGroup = 10010007 /* CustomGroup */;
+                      projectDirPath = "";
+                      projectRoot = "";
+                      targets = (10010008 /* DWGViewer */);
+                  };
+                  /* End PBXProject section */
+
+                  /* Begin PBXSourcesBuildPhase section */
+                  10010010 /* Sources */ = {
+                      isa = PBXSourcesBuildPhase;
+                      buildActionMask = 2147483647;
+                      files = (
+                          10010001 /* ContentView.swift in Sources */,
+                          10010002 /* DWGViewerApp.swift in Sources */,
+                      );
+                      runOnlyForDeploymentPostprocessing = 0;
+                  };
+                  /* End PBXSourcesBuildPhase section */
+
+                  /* Begin XCBuildConfiguration section */
+                  10010012 /* Debug */ = {
+                      isa = XCBuildConfiguration;
+                      buildSettings = {
+                          ALWAYS_SEARCH_USER_PATHS = NO;
+                          ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+                          ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+                          BUNDLE_LOADER = "$(TEST_HOST)";
+                          CODE_SIGN_IDENTITY = "";
+                          CODE_SIGNING_ALLOWED = NO;
+                          CODE_SIGNING_REQUIRED = NO;
+                          CURRENT_PROJECT_VERSION = 1;
+                          GENERATE_INFOPLIST_FILE = YES;
+                          INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+                          INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+                          MARKETING_VERSION = 1.0;
+                          PRODUCT_BUNDLE_IDENTIFIER = com.freecad.DWGViewer;
+                          PRODUCT_NAME = "$(TARGET_NAME)";
+                          SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+                          TARGETED_DEVICE_FAMILY = "1,2";
+                          TARGET_NAME = DWGViewer;
+                          SWIFT_VERSION = 5.0;
+                      };
+                      name = Debug;
+                  };
+                  10010013 /* Release */ = {
+                      isa = XCBuildConfiguration;
+                      buildSettings = {
+                          ALWAYS_SEARCH_USER_PATHS = NO;
+                          ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+                          ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+                          CODE_SIGN_IDENTITY = "";
+                          CODE_SIGNING_ALLOWED = NO;
+                          CODE_SIGNING_REQUIRED = NO;
+                          CURRENT_PROJECT_VERSION = 1;
+                          GENERATE_INFOPLIST_FILE = YES;
+                          INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+                          INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+                          MARKETING_VERSION = 1.0;
+                          PRODUCT_BUNDLE_IDENTIFIER = com.freecad.DWGViewer;
+                          PRODUCT_NAME = "$(TARGET_NAME)";
+                          SUPPORTED_PLATFORMS = "iphoneos";
+                          TARGETED_DEVICE_FAMILY = "1,2";
+                          TARGET_NAME = DWGViewer;
+                          SWIFT_VERSION = 5.0;
+                      };
+                      name = Release;
+                  };
+                  10010015 /* Debug Project Settings */ = { isa = XCBuildConfiguration; buildSettings = { SDKROOT = iphoneos; }; name = Debug; };
+                  10010016 /* Release Project Settings */ = { isa = XCBuildConfiguration; buildSettings = { SDKROOT = iphoneos; }; name = Release; };
+                  /* End XCBuildConfiguration section */
+
+                  /* Begin XCConfigurationList section */
+                  10010011 /* Build configuration list for PBXNativeTarget "DWGViewer" */ = { isa = XCConfigurationList; buildConfigurations = (10010012 /* Debug */, 10010013 /* Release */); defaultConfigurationName = Release; defaultConfigurationIsVisible = 0; };
+                  10010014 /* Build configuration list for PBXProject "DWGViewer" */ = { isa = XCConfigurationList; buildConfigurations = (10010015 /* Debug Project Settings */, 10010016 /* Release Project Settings */); defaultConfigurationName = Release; defaultConfigurationIsVisible = 0; };
+                  /* End XCConfigurationList section */
+              };
+              rootObject = 10010009 /* Project object */;
+          }
+          EOF
+
+      # ৪. সঠিক এক্সকোড এনভায়রনমেন্ট সিলেক্ট করা
       - name: Select Xcode Version
         run: sudo xcode-select -s /Applications/Xcode_15.2.app
 
-      # ৪. জেনুইন প্রজেক্ট মেটাডাটা ও ইনফো লিস্ট তৈরি (App Bundle ফিক্স করার মূল ট্রিক)
-      - name: Build and Package iOS App Bundle (.app)
+      # ৫. জেনুইন এক্সকোড কমান্ড দিয়ে প্রজেক্ট সফলভাবে কমপাইল করা
+      - name: Build Xcode Project (Unsigned)
         run: |
           cd DWGViewer
-          
-          # রানারকে দিয়ে নেটিভ আইওএস কমপাইল করার জন্য কারেন্ট ডিরেক্টরি সেটআপ করা
-          xcodebuild -inlineArchivedFrameworks YES -destination "generic/platform=iOS" \
-            -buildCommand build \
+          xcodebuild clean build \
+            -project DWGViewer.xcodeproj \
+            -scheme DWGViewer \
+            -configuration Release \
+            -sdk iphoneos \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
-            PROVISIONING_PROFILE_SPECIFIER="" \
-            -derivedDataPath build_output
-            
-          # পে-লোড ডিরেক্টরি সেটআপ করা
-          mkdir -p Payload
-          
-          # জেনারেট হওয়া আসল আইওএস অ্যাপ বান্ডেল (.app) খুঁজে বের করে পে-লোডে কপি করা
-          find /Users/runner/Library/Developer/Xcode/DerivedData -name "*.app" -type d -exec cp -r {} Payload/ \; 2>/dev/null || true
-          find . -name "*.app" -type d -exec cp -r {} Payload/ \; 2>/dev/null || true
-          
-          # নিশ্চিত করা যে পে-লোড ফোল্ডারটি খালি না থাকে (Fallback Dummy App Bundle Configuration)
-          if [ ! -d "Payload/"*.app ]; then
-            mkdir -p Payload/DWGViewer.app
-            echo "Fallback enforcement executed."
-          fi
+            PROVISIONING_PROFILE_SPECIFIER=""
 
-      # ৫. জেনুইন IPA ফাইলে জিপ আর্টফ্যাক্ট রূপান্তর
-      - name: Archive to Unsigned IPA
+      # 🔍 ৬. অ্যাপ বান্ডেল (.app) লোড করে জেনুইন আইপিএ (IPA) তৈরি ও ভেরিফিকেশন করা
+      - name: Package Payload into Working IPA
         run: |
           cd DWGViewer
+          mkdir -p Payload
+          
+          # বিল্ড আউটপুট থেকে ডাইনামিক্যালি .app ফাইলটি খোঁজা 
+          APP_PATH=$(find build/ -name "DWGViewer.app" -type d 2>/dev/null | head -n 1)
+          if [ -z "$APP_PATH" ]; then
+            APP_PATH=$(find /Users/runner/Library/Developer/Xcode/DerivedData -name "DWGViewer.app" -type d 2>/dev/null | head -n 1)
+          fi
+          
+          echo "Found App Bundle at: $APP_PATH"
+          cp -r "$APP_PATH" Payload/
+          
+          # জিপ ফাইল এনকোড করে প্রফেশনাল আনসাইন্ড আইপিএ তৈরি
           zip -r DWGViewer_Unsigned.ipa Payload
-          mkdir -p ../out_artifact
-          cp DWGViewer_Unsigned.ipa ../out_artifact/
+          mkdir -p ../out_ipa
+          cp DWGViewer_Unsigned.ipa ../out_ipa/
 
-      # ৬. ফাইনাল IPA ফাইলটি গিটহাবে আপলোড
-      - name: Upload Finished IPA
+      # ৭. ফাইনাল আর্টফ্যাক্ট গিটহাবে আপলোড (ডাউনলোডের জন্য রেডি)
+      - name: Upload Finished Valid IPA
         uses: actions/upload-artifact@v4
         with:
           name: Unsigned-iOS-IPA
-          path: out_artifact/DWGViewer_Unsigned.ipa
+          path: out_ipa/DWGViewer_Unsigned.ipa
           retention-days: 7
