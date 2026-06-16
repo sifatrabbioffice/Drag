@@ -1,19 +1,19 @@
-name: Build Massive 3D Game (Doom 3 iOS Unsigned IPA)
+name: Build Massive iOS Game (Delta Unsigned IPA)
 
 on:
   workflow_dispatch: # গিটহাব থেকে ম্যানুয়ালি রান করার জন্য
 
 jobs:
   build-ios:
-    name: Build Native C++ 3D Game
+    name: Build Native iOS Game
     runs-on: macos-14
 
     steps:
-      # ১. গেমের বিশাল ৩D সোর্স কোড সরাসরি ক্লোন করা (সব সাব-মডিউলসহ)
-      - name: Checkout Doom 3 iOS Source Code
+      # ১. ডেল্টা গেমের অফিশিয়াল বিশাল সোর্স কোড ডাউনলোড করা (সব সাব-মডিউলসহ)
+      - name: Checkout Delta Source Code
         uses: actions/checkout@v4
         with:
-          repository: 'fabiensanglard/d3m' # এটি একটি বিশ্ববিখ্যাত এবং বিশাল সি++ গেম ইঞ্জিন পোর্ট
+          repository: 'rileytestut/Delta' # ডেল্টা গেম ইঞ্জিনের একদম সঠিক অফিশিয়াল লিংক
           ref: 'master'
           submodules: 'recursive'
 
@@ -23,16 +23,16 @@ jobs:
           sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
           xcodebuild -version
 
-      # ৩. কোনো Apple ID বা কোড সাইনিং ছাড়াই সরাসরি Xcode প্রজেক্ট আর্কাইভ করা
-      # এখানে আমরা সরাসরি .xcodeproj ফাইলটি বিল্ড করছি, তাই কোনো CMake এরর আসবে না
+      # ৩. কোনো Apple ID বা কোড সাইনিং ছাড়াই সরাসরি Xcode Workspace আর্কাইভ করা
+      # যেহেতু এটি একটি বড় প্রজেক্ট, তাই এখানে .xcodeproj এর বদলে .xcworkspace ব্যবহার করা হয়েছে
       - name: Build and Archive Project
         run: |
           xcodebuild archive \
-            -project *.xcodeproj \
-            -scheme "d3m" \
+            -workspace Delta.xcworkspace \
+            -scheme "Delta" \
             -configuration Release \
             -sdk iphoneos \
-            -archivePath $GITHUB_WORKSPACE/build/Doom3.xcarchive \
+            -archivePath $GITHUB_WORKSPACE/build/Delta.xcarchive \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
@@ -43,19 +43,19 @@ jobs:
         run: |
           mkdir -p $GITHUB_WORKSPACE/Payload
           
-          # তৈরি হওয়া বিশাল .app ফাইলটি পেলোড ফোল্ডারে নেওয়া হচ্ছে
-          cp -r $GITHUB_WORKSPACE/build/Doom3.xcarchive/Products/Applications/*.app $GITHUB_WORKSPACE/Payload/
+          # তৈরি হওয়া মূল গেমের .app ফাইলটি পেলোড ফোল্ডারে কপি করা হচ্ছে
+          cp -r $GITHUB_WORKSPACE/build/Delta.xcarchive/Products/Applications/*.app $GITHUB_WORKSPACE/Payload/
           
           # পেলোড ফোল্ডারটিকে জিপ করে .ipa ফরম্যাট দেওয়া হচ্ছে
           cd $GITHUB_WORKSPACE
-          zip -r Doom3_Unsigned.ipa Payload
+          zip -r Delta_Unsigned.ipa Payload
           
-          echo "Massive 3D Game Unsigned IPA successfully created!"
+          echo "Delta Unsigned IPA successfully created!"
 
       # ৫. তৈরি হওয়া .ipa ফাইলটি গিটহাবে আপলোড করা
-      - name: Upload Massive Game IPA Artifact
+      - name: Upload Delta Game IPA Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Doom3-3D-Game-IPA
-          path: ${{ github.workspace }}/Doom3_Unsigned.ipa
+          name: Delta-Game-IPA
+          path: ${{ github.workspace }}/Delta_Unsigned.ipa
           retention-days: 7
