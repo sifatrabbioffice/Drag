@@ -1,12 +1,12 @@
 name: Self-Healing Deep-Intelligence Game Build
 
 on:
-  workflow_dispatch: # এক ক্লিকে ম্যানুয়ালি রান করার জন্য
+  workflow_dispatch: # এক ক্লিকে ম্যানuয়ালি রান করার জন্য
 
 jobs:
   build-ios:
     name: Advanced Self-Healing Compiler
-    runs-on: macos-14
+    runs-on: macos-14 # ম্যাকওএস ১৪-এ এক্সকোড ১৬ এভেইলেবল থাকে
 
     steps:
       # ১. ডেল্টা গেমের মূল কোড নামানো
@@ -17,10 +17,11 @@ jobs:
           ref: 'main'
           submodules: 'recursive'
 
-      # ২. সঠিক Xcode এনভায়রনমেন্ট সেট করা
-      - name: Force Lock Xcode Version
+      # ২. ব্রেন পার্ট: Xcode 16 লক করা (Swift 6.0 সাপোর্ট নিশ্চিত করার জন্য)
+      # এটি পূর্বের Xcode 15.4 এর সীমাবদ্ধতা দূর করবে
+      - name: Force Lock Xcode 16 Version (Swift 6.0 Enabled)
         run: |
-          sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
+          sudo xcode-select -s /Applications/Xcode_16.app/Contents/Developer
           xcodebuild -version
 
       # ৩. মিসিং সোর্স কোডগুলো ডাইরেক্ট ক্লোন করা
@@ -30,16 +31,12 @@ jobs:
           git clone --recursive https://github.com/rileytestut/DeltaOperator.git External/DeltaOperator || true
           git clone --recursive https://github.com/rileytestut/Roxas.git External/Roxas || true
 
-      # ৪. আসল ব্রেন পার্ট: ডাইনামিক প্লাগইন ও Info.plist ফাইল জেনারেটর
-      # এই স্টেপটি এক্সকোডকে শান্ত করার জন্য সঠিক আইওএস ফরম্যাটে একটি বৈধ Info.plist জেনারেট করবে
-      # যাতে 'Exit code 65' এররটি চিরতরে ফিক্স হয়ে যায়।
+      # ৪. ডাইনামিক প্লাগইন ও Info.plist ফাইল জেনারেট করা (পূর্বের ফিক্স বজায় রাখা হলো)
       - name: Dynamic Info.plist Generator & Bypass Engine
         run: |
-          echo "🧠 Deep Brain Analytics: Initializing Core Directory Structure..."
           mkdir -p External/DeltaOperator/Frameworks/OperatorKit.xcframework
           mkdir -p External/Roxas/Frameworks/Roxas.xcframework
           
-          echo "🛠️ Creating Self-Healed Info.plist for OperatorKit..."
           cat << 'EOF' > External/DeltaOperator/Frameworks/OperatorKit.xcframework/Info.plist
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -70,7 +67,6 @@ jobs:
           </plist>
           EOF
 
-          echo "🛠️ Creating Self-Healed Info.plist for Roxas..."
           cat << 'EOF' > External/Roxas/Frameworks/Roxas.xcframework/Info.plist
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -101,9 +97,10 @@ jobs:
           </plist>
           EOF
 
-          echo "✅ Generation Complete! Info.plist files injected successfully."
+          echo "✅ Info.plist files injected successfully."
 
-      # ৫. অ্যাডভান্সড এক্সকোড বিল্ড (কম্পাইলার ইন্ডেক্স এবং ওয়ার্কস্পেস ভ্যালিডেশন বাইপাস সহ)
+      # ৫. এক্সকোড ১৬ দিয়ে অ্যাডভান্সড আর্কিটেকচার বিল্ড রান করা
+      # সুইফট কম্পাইলারকে ফোর্স করার জন্য SWIFT_VERSION=6.0 ফ্ল্যাগ এবং এক্সকোড ১৬ ওভাররাইড যোগ করা হয়েছে
       - name: Advanced Compiling & Archiving
         run: |
           xcodebuild archive \
@@ -118,14 +115,14 @@ jobs:
             PROVISIONING_PROFILE_SPECIFIER="" \
             COMPILER_INDEX_STORE_ENABLE=NO \
             VALIDATE_WORKSPACE=NO \
-            ONLY_ACTIVE_ARCH=YES
+            ONLY_ACTIVE_ARCH=YES \
+            SWIFT_VERSION=6.0
 
       # ৬. রুট লেভেল থেকে আনসাইনড .ipa তৈরি ও প্যাকেজিং
       - name: Packaging into Unsigned IPA
         run: |
           mkdir -p $GITHUB_WORKSPACE/Payload
           
-          # আর্কাইভ থেকে মেইন .app ফাইলটি খুঁজে পেলোডে নেওয়া
           if [ -d "$GITHUB_WORKSPACE/build/Delta.xcarchive/Products/Applications/Delta.app" ]; then
             cp -r $GITHUB_WORKSPACE/build/Delta.xcarchive/Products/Applications/Delta.app $GITHUB_WORKSPACE/Payload/
           else
