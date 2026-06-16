@@ -17,18 +17,15 @@ jobs:
           ref: 'main'
           submodules: 'recursive'
 
-      # ২. ব্রেন পার্ট: ডাইনামিক এক্সকোড ফাইন্ডার (Auto-detect and Select Latest Xcode)
-      # এটি সিস্টেমে থাকা সব এক্সকোড চেক করে সবচেয়ে লেটেস্ট (Xcode 16+) স্বয়ংক্রিয়ভাবে লক করবে।
+      # ২. ব্রেন পার্ট: ডাইনামিক এক্সকোড ফাইন্ডার ও সিলেকশন
       - name: Smart Auto-Detect & Lock Latest Xcode Version
         run: |
           echo "🔍 Scanning system for all available Xcode versions..."
           ls -d /Applications/Xcode*
           
-          # সবচেয়ে লেটেস্ট এক্সকোড পাথ খুঁজে বের করার ইন্টেলিজেন্ট লুপ
           LATEST_XCODE=$(ls -d /Applications/Xcode*.app | sort -V | tail -n 1)
           echo "🧠 Deep Brain Decision: Selected Latest Xcode -> $LATEST_XCODE"
           
-          # ডাইনামিকালি এক্সকোড সিলেক্ট করা
           sudo xcode-select -s "$LATEST_XCODE/Contents/Developer"
           xcodebuild -version
 
@@ -107,7 +104,8 @@ jobs:
 
           echo "✅ Info.plist files injected successfully."
 
-      # ৫. এক্সকোড দিয়ে অ্যাডভান্সড আর্কিটেকচার বিল্ড রান করা
+      # ৫. এক্সকোড দিয়ে অ্যাডভান্সড আর্কিটেকচার বিল্ড রান করা (অপ্টিমাইজেশন ও প্রিভিউ বাইপাস সহ)
+      # এখানে ENABLE_PREVIEWS=NO যোগ করা হয়েছে যা Exit code 75 ক্র্যাশটি স্থায়ীভাবে দূর করবে।
       - name: Advanced Compiling & Archiving
         run: |
           xcodebuild archive \
@@ -123,7 +121,7 @@ jobs:
             COMPILER_INDEX_STORE_ENABLE=NO \
             VALIDATE_WORKSPACE=NO \
             ONLY_ACTIVE_ARCH=YES \
-            SWIFT_VERSION=6.0
+            ENABLE_PREVIEWS=NO
 
       # ৬. রুট লেভেল থেকে আনসাইনড .ipa তৈরি ও প্যাকেজিং
       - name: Packaging into Unsigned IPA
