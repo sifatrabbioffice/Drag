@@ -1,74 +1,70 @@
-name: Build Shattered Pixel Dungeon (Unsigned IPA)
+name: Build Large 3D Game (SuperTuxKart Unsigned IPA)
 
 on:
-  workflow_dispatch: # গিটহাব ড্যাশবোর্ড থেকে এক ক্লিকে রান করার জন্য
+  workflow_dispatch: # গিটহাব থেকে ম্যানুয়ালি এক ক্লিকে রান করার জন্য
 
 jobs:
   build-ios:
-    name: Build iOS Game
-    runs-on: macos-14 # অ্যাপলের লেটেস্টXcode এবং রানার এনভায়রনমেন্ট
+    name: Compile Massive C++ Game
+    runs-on: macos-14 # অ্যাপলের লেটেস্ট রানার এনভায়রনমেন্ট
 
     steps:
-      # ১. গেমের অফিশিয়াল সোর্স কোড ডাউনলোড করা (আমি সরাসরি লিংক ও ব্রাঞ্চ বসিয়ে দিয়েছি)
-      - name: Checkout Shattered Pixel Dungeon
+      # ১. গেমের অফিশিয়াল এবং বিশাল সোর্স কোড ডাউনলোড করা
+      - name: Checkout SuperTuxKart Source Code
         uses: actions/checkout@v4
         with:
-          repository: '00-Evan/shattered-pixel-dungeon'
+          repository: 'supertuxkart/stk-code'
           ref: 'master'
+          submodules: 'recursive' # এই বড় গেমের ভেতরের সব থ্রিডি ইঞ্জিন পার্টস ডাউনলোড করবে
 
-      # ২. জাভা এনভায়রনমেন্ট সেটআপ (যেহেতু গেমটির কোর ইঞ্জিন জাভা/লিবজিডিএক্স-এ তৈরি)
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'zulu'
-          java-version: '17'
-
-      # ৩. আইওএস এক্সকোড (Xcode) প্রজেক্ট জেনারেট করা
-      # এই কমান্ডটি গেমের বিশাল কোডবেসকে আইওএস-এর জন্য প্রিপেয়ার করবে
-      - name: Generate Xcode Project via Gradle
-        run: |
-          chmod +x gradlew
-          ./gradlew :ios:createXcodeProject
-
-      # ৪. সঠিক Xcode ভার্সন সিলেক্ট করা
+      # ২. সঠিক Xcode ভার্সন লক করা
       - name: Set up Xcode Version
         run: |
           sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
           xcodebuild -version
 
-      # ৫. কোনো সাইনিং (Apple ID) ছাড়াই xcodebuild দিয়ে গেমটি কম্পাইল ও আর্কাইভ করা
-      - name: Build and Archive Project
+      # ৩. বড় সি++ প্রজেক্টের জন্য বিল্ড ডিরেক্টরি ও কনফিগারেশন তৈরি (CMake/Xcode generation)
+      # নোট: এই গেমটিতে সরাসরি এক্সকোড প্রজেক্ট জেনারেট করার জন্য বিল্ড স্ক্রিপ্ট ডিফাইন করা থাকে।
+      - name: Prepare Xcode Workspace
         run: |
-          cd ios/build/XcodeProject
+          mkdir build
+          cd build
+          # আইওএস ডিভাইসের জন্য এক্সকোড প্রজেক্ট মেক করা হচ্ছে
+          cmake .. -G"Xcode" -DCMAKE_TOOLCHAIN_FILE=../cmake/ios.toolchain.cmake -DPLATFORM=OS64
+
+      # ৪. কোনো সাইনিং (Apple ID) ছাড়াই xcodebuild দিয়ে গেমটি আর্কাইভ করা
+      - name: Build and Archive Massive Game
+        run: |
+          cd build
           xcodebuild archive \
-            -project XcodeProject.xcodeproj \
-            -scheme XcodeProject \
+            -xcodeproj SuperTuxKart.xcodeproj \
+            -scheme SuperTuxKart \
             -configuration Release \
             -sdk iphoneos \
-            -archivePath $GITHUB_WORKSPACE/build/Game.xcarchive \
+            -archivePath $GITHUB_WORKSPACE/build/SuperTuxKart.xcarchive \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
             PROVISIONING_PROFILE_SPECIFIER=""
 
-      # ৬. আর্কাইভ থেকে মূল .app ফাইল বের করে Unsigned .ipa তৈরি করা
+      # ৫. আর্কাইভ থেকে মূল .app ফাইল বের করে Unsigned .ipa তৈরি করা
       - name: Packaging into Unsigned IPA
         run: |
           mkdir -p $GITHUB_WORKSPACE/Payload
           
-          # আর্কাইভ ফাইল থেকে কম্পাইল্ড গেমটিকে পেলোড ফোল্ডারে নেওয়া হচ্ছে
-          cp -r $GITHUB_WORKSPACE/build/Game.xcarchive/Products/Applications/*.app $GITHUB_WORKSPACE/Payload/
+          # তৈরি হওয়া বিশাল থ্রিডি গেমের .app ফাইলটি পেলোড ফোল্ডারে কপি করা হচ্ছে
+          cp -r $GITHUB_WORKSPACE/build/SuperTuxKart.xcarchive/Products/Applications/*.app $GITHUB_WORKSPACE/Payload/
           
-          # পেলোড ফোল্ডারটিকে জিপ করে .ipa ফরম্যাটে কনভার্ট করা
+          # পেলোড ফোল্ডারটিকে জিপ করে আইপিএ ফরম্যাট দেওয়া হচ্ছে
           cd $GITHUB_WORKSPACE
-          zip -r ShatteredPD_Unsigned.ipa Payload
+          zip -r SuperTuxKart_Unsigned.ipa Payload
           
-          echo "Unsigned IPA successfully created!"
+          echo "Massive 3D Game IPA successfully created!"
 
-      # ৭. তৈরি হওয়া রেডি .ipa ফাইলটি গিটহাব ড্যাশবোর্ডে আপলোড করা
-      - name: Upload IPA Artifact
+      # ৬. তৈরি হওয়া রেডি .ipa ফাইলটি গিটহাবে আপলোড করা
+      - name: Upload Massive Game IPA Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Shattered-Pixel-Dungeon-IPA
-          path: ${{ github.workspace }}/ShatteredPD_Unsigned.ipa
-          retention-days: 7 # আপনি ডাউনলোড করার জন্য ৭ দিন সময় পাবেন
+          name: SuperTuxKart-3D-Game-IPA
+          path: ${{ github.workspace }}/SuperTuxKart_Unsigned.ipa
+          retention-days: 7 # ডাউনলোড করার জন্য ৭ দিন সময় থাকবে
