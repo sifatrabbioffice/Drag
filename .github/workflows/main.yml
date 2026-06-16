@@ -10,21 +10,20 @@ on:
 jobs:
   build:
     name: Generate Valid Project and Build IPA
-    runs-on: macos-14
+    runs-on: macos-13 
 
     steps:
       # ১. কোড চেকআউট করা
       - name: Checkout Source Code
         uses: actions/checkout@v4
 
-      # ২. রানারের ভেতরেই আসল এক্সকোড প্রজেক্ট স্ট্রাকচার (.xcodeproj) তৈরি করা
+      # ২. রানারের রুটে সরাসরি সোর্স ফাইল এবং এক্সকোড প্রজেক্ট ডিরেক্টরি তৈরি
       - name: Generate True Xcode Project Structure
         run: |
-          mkdir -p DWGViewer/DWGViewer
-          mkdir -p DWGViewer/DWGViewer.xcodeproj
+          mkdir -p DWGViewer.xcodeproj
           
-          # ContentView.swift ফাইল তৈরি (SwiftUI + Dynamic Theme + Free CAD Viewer)
-          cat << 'EOF' > DWGViewer/DWGViewer/ContentView.swift
+          # ContentView.swift ফাইল তৈরি (সরাসরি মেইন ট্র্যাকিং পাথে)
+          cat << 'EOF' > ContentView.swift
           import SwiftUI
           import UniformTypeIdentifiers
           import WebKit
@@ -121,7 +120,7 @@ jobs:
                       <div class="box">
                           <h3>[CAD Canvas Engine]</h3>
                           <p style="color:#00ff00;">✔ \(fileURL.lastPathComponent)</p>
-                          <p style="font-size:12px; color:#aaa;">Free HTML5 Pipeline - Loaded successfully.</p>
+                          <p style="font-size:12px; color:#aaa;">Free HTML5 Pipeline - Processed Successfully.</p>
                       </div>
                   </body>
                   </html>
@@ -131,8 +130,8 @@ jobs:
           }
           EOF
 
-          # DWGViewerApp.swift (Main Entry) ফাইল তৈরি
-          cat << 'EOF' > DWGViewer/DWGViewer/DWGViewerApp.swift
+          # DWGViewerApp.swift (Main Entry Point) তৈরি করা
+          cat << 'EOF' > DWGViewerApp.swift
           import SwiftUI
 
           @main
@@ -145,8 +144,8 @@ jobs:
           }
           EOF
 
-          # ৩. এক্সকোড প্রজেক্ট মেটাডাটা (project.pbxproj) ইনলাইন জেনারেট করা যাতে Exit Code 64 ফিক্স হয়
-          cat << 'EOF' > DWGViewer/DWGViewer.xcodeproj/project.pbxproj
+          # ৩. এক্সকোড ম্যাপ মেটাডাটা প্রজেক্ট ফাইল (project.pbxproj) জেনারেট করা
+          cat << 'EOF' > DWGViewer.xcodeproj/project.pbxproj
           // !$*UTF8*$!
           {
               archiveVersion = 1;
@@ -159,8 +158,8 @@ jobs:
                   /* End PBXBuildFile section */
 
                   /* Begin PBXFileReference section */
-                  10010003 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
-                  10010004 /* DWGViewerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DWGViewerApp.swift; sourceTree = "<group>"; };
+                  10010003 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ContentView.swift; path = ContentView.swift; sourceTree = "<group>"; };
+                  10010004 /* DWGViewerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DWGViewerApp.swift; path = DWGViewerApp.swift; sourceTree = "<group>"; };
                   10010005 /* DWGViewer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DWGViewer.app; sourceTree = BUILT_PRODUCTS_DIR; };
                   /* End PBXFileReference section */
 
@@ -291,10 +290,9 @@ jobs:
       - name: Select Xcode Version
         run: sudo xcode-select -s /Applications/Xcode_15.2.app
 
-      # ৫. জেনুইন এক্সকোড কমান্ড দিয়ে প্রজেক্ট সফলভাবে কমপাইল করা
+      # ৫. জেনুইন এক্সকোড কমান্ড দিয়ে প্রজেক্ট কমপাইল করা (Exit Code 65 ফিক্সড)
       - name: Build Xcode Project (Unsigned)
         run: |
-          cd DWGViewer
           xcodebuild clean build \
             -project DWGViewer.xcodeproj \
             -scheme DWGViewer \
@@ -308,24 +306,20 @@ jobs:
       # 🔍 ৬. অ্যাপ বান্ডেল (.app) লোড করে জেনুইন আইপিএ (IPA) তৈরি ও ভেরিফিকেশন করা
       - name: Package Payload into Working IPA
         run: |
-          cd DWGViewer
           mkdir -p Payload
           
-          # বিল্ড আউটপুট থেকে ডাইনামিক্যালি .app ফাইলটি খোঁজা 
-          APP_PATH=$(find build/ -name "DWGViewer.app" -type d 2>/dev/null | head -n 1)
-          if [ -z "$APP_PATH" ]; then
-            APP_PATH=$(find /Users/runner/Library/Developer/Xcode/DerivedData -name "DWGViewer.app" -type d 2>/dev/null | head -n 1)
-          fi
+          # বিল্ড আউটপুট (DerivedData) থেকে .app ফাইলটি খোঁজা 
+          APP_PATH=$(find /Users/runner/Library/Developer/Xcode/DerivedData -name "DWGViewer.app" -type d 2>/dev/null | head -n 1)
           
           echo "Found App Bundle at: $APP_PATH"
           cp -r "$APP_PATH" Payload/
           
           # জিপ ফাইল এনকোড করে প্রফেশনাল আনসাইন্ড আইপিএ তৈরি
           zip -r DWGViewer_Unsigned.ipa Payload
-          mkdir -p ../out_ipa
-          cp DWGViewer_Unsigned.ipa ../out_ipa/
+          mkdir -p out_ipa
+          cp DWGViewer_Unsigned.ipa out_ipa/
 
-      # ৭. ফাইনাল আর্টফ্যাক্ট গিটহাবে আপলোড (ডাউনলোডের জন্য রেডি)
+      # ৭. ফাইনাল আর্টফ্যাক্ট গিটহাবে আপলোড
       - name: Upload Finished Valid IPA
         uses: actions/upload-artifact@v4
         with:
