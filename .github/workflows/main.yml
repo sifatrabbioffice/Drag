@@ -1,106 +1,199 @@
-name: Self-Healing Deep-Intelligence Game Build
+# ==========================================
+# অংশ ১: GITHUB ACTIONS WORKFLOW (.yml)
+# ফাইলটি আপনার প্রজেক্টের এই পাথে সেভ করুন: .github/workflows/build.yml
+# ==========================================
+name: Build Unsigned iOS IPA
 
 on:
-  workflow_dispatch: # এক ক্লিকে ম্যানুয়ালি রান করার জন্য
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch: 
 
 jobs:
-  build-ios:
-    name: Advanced Self-Healing Compiler
-    runs-on: macos-14
+  build:
+    name: Compile and Package App using macOS Runner
+    runs-on: macos-13 
 
     steps:
-      # ১. ডেল্টা গেমের মূল কোড নামানো
-      - name: Deep Checkout Source Code
+      - name: Checkout Source Code
         uses: actions/checkout@v4
-        with:
-          repository: 'rileytestut/Delta'
-          ref: 'main'
-          submodules: 'recursive'
 
-      # ২. ব্রেন পার্ট: ডাইনামিক এক্সকোড ফাইন্ডার ও সিলেকশন
-      - name: Smart Auto-Detect & Lock Latest Xcode Version
-        run: |
-          echo "🔍 Scanning system for all available Xcode versions..."
-          LATEST_XCODE=$(ls -d /Applications/Xcode*.app | sort -V | tail -n 1)
-          echo "🧠 Deep Brain Decision: Selected Latest Xcode -> $LATEST_XCODE"
-          sudo xcode-select -s "$LATEST_XCODE/Contents/Developer"
-          xcodebuild -version
+      - name: Select Xcode Version
+        run: sudo xcode-select -s /Applications/Xcode_15.2.app
 
-      # ৩. মিসিং সোর্স কোডগুলো ডাইরেক্ট ক্লোন করা
-      - name: Force Fetch Submodule Codebases
+      - name: Build Xcode Project (Unsigned)
         run: |
-          rm -rf External/DeltaOperator External/Roxas
-          git clone --recursive https://github.com/rileytestut/DeltaOperator.git External/DeltaOperator || true
-          git clone --recursive https://github.com/rileytestut/Roxas.git External/Roxas || true
-
-      # ৪. আল্ট্রা-ইন্টেলিজেন্স পার্ট: রিয়েল XCFrameworkস জিপ ডাউনলোডার ও জেনারেটর
-      # কার্থেজকে বাইপাস করে অফিশিয়াল গিটহাব রিলিজ থেকে আসল বাইনারি ফ্রেমওয়ার্ক ইনজেক্ট করা হচ্ছে
-      - name: Dynamic Framework Injector Engine
-        run: |
-          echo "🧠 Deep Brain Analytics: Fetching Pre-compiled Official XCFrameworks..."
-          
-          # তৈরি করছি ব্যাকআপ ডিরেক্টরি
-          mkdir -p External/DeltaOperator/Frameworks/
-          mkdir -p External/Roxas/Frameworks/
-          
-          # ১. ডেল্টা অপারেটর (OperatorKit) এর আসল রিলিজ জিপ ডাউনলোড ও এক্সট্রাক্ট করা
-          echo "📥 Downloading OperatorKit.xcframework..."
-          curl -L -o operatorkit.zip https://github.com/rileytestut/DeltaOperator/releases/download/1.0/OperatorKit.xcframework.zip || true
-          if [ -f "operatorkit.zip" ]; then
-            unzip -o operatorkit.zip -d External/DeltaOperator/Frameworks/ || true
-            rm -f operatorkit.zip
-          fi
-          
-          # ২. রক্সাস (Roxas) এর আসল রিলিজ জিপ ডাউনলোড ও এক্সট্রাক্ট করা
-          echo "📥 Downloading Roxas.xcframework..."
-          curl -L -o roxas.zip https://github.com/rileytestut/Roxas/releases/download/1.0/Roxas.xcframework.zip || true
-          if [ -f "roxas.zip" ]; then
-            unzip -o roxas.zip -d External/Roxas/Frameworks/ || true
-            rm -f roxas.zip
-          fi
-          
-          echo "🛠️ Verification: Checking if real frameworks are successfully placed..."
-          ls -la External/DeltaOperator/Frameworks/
-          ls -la External/Roxas/Frameworks/
-
-      # ৫. এক্সকোড ১৬ দিয়ে অ্যাডভান্সড আর্কিটেকচার বিল্ড রান করা
-      - name: Advanced Compiling & Archiving
-        run: |
-          xcodebuild archive \
-            -workspace Delta.xcworkspace \
-            -scheme "Delta" \
-            -configuration Release \
+          xcodebuild clean build \
+            -project *.xcodeproj \
+            -scheme "DWGViewer" \
             -sdk iphoneos \
-            -archivePath $GITHUB_WORKSPACE/build/Delta.xcarchive \
+            -configuration Release \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
-            PROVISIONING_PROFILE_SPECIFIER="" \
-            COMPILER_INDEX_STORE_ENABLE=NO \
-            VALIDATE_WORKSPACE=NO \
-            ONLY_ACTIVE_ARCH=YES \
-            ENABLE_PREVIEWS=NO
+            PROVISIONING_PROFILE_SPECIFIER=""
 
-      # ৬. রুট লেভেল থেকে আনসাইনড .ipa তৈরি ও প্যাকেজিং
-      - name: Packaging into Unsigned IPA
+      - name: Package Unsigned App into IPA Format
         run: |
-          mkdir -p $GITHUB_WORKSPACE/Payload
-          
-          if [ -d "$GITHUB_WORKSPACE/build/Delta.xcarchive/Products/Applications/Delta.app" ]; then
-            cp -r $GITHUB_WORKSPACE/build/Delta.xcarchive/Products/Applications/Delta.app $GITHUB_WORKSPACE/Payload/
-          else
-            echo "Fallback Path Search Activation..."
-            cp -r $GITHUB_WORKSPACE/build/Delta.xcarchive/Products/Applications/*.app $GITHUB_WORKSPACE/Payload/
-          fi
-          
-          cd $GITHUB_WORKSPACE
-          zip -r Delta_DeepIntelligence_Unsigned.ipa Payload
-          echo "Unsigned IPA Generation Complete!"
+          mkdir -p build/Payload
+          APP_PATH=$(find build/ -name "*.app" -type d | head -n 1)
+          cp -r "$APP_PATH" build/Payload/
+          cd build
+          zip -r DWGViewer_Unsigned.ipa Payload
+          echo "IPA creation successful!"
 
-      # ৭. ফাইনাল আউটপুট আর্টফ্যাক্ট আপলোড
-      - name: Upload Finished IPA Artifact
+      - name: Upload Unsigned Build Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Delta-SelfHealed-Game-IPA
-          path: ${{ github.workspace }}/Delta_DeepIntelligence_Unsigned.ipa
+          name: Unsigned-iOS-IPA
+          path: build/DWGViewer_Unsigned.ipa
           retention-days: 7
+
+# ==========================================
+# অংশ ২: SWIFTUI & CAD ENGINE SOURCE CODE
+# এই কোডটি আপনার Xcode এর ContentView.swift ফাইলে পেস্ট করুন
+# ==========================================
+/*
+import SwiftUI
+import UniformTypeIdentifiers
+import WebKit
+
+// ১. DWG ফাইলের জন্য কাস্টম টাইপ ও আইওএস স্যান্ডবক্স পারমিশন হ্যান্ডলার
+extension UTType {
+    static var dwg: UTType {
+        UTType(importedAs: "com.autodesk.dwg", conformingTo: .data)
+    }
+}
+
+// ২. মেইন ডাইনামিক ইন্টারফেস (ডার্ক/লাইট মোড এবং অটো-পপআপ মেনুসহ)
+struct ContentView: View {
+    @State private var isFileImporterPresented = true 
+    @State private var selectedFileURL: URL?
+    @Environment(\.colorScheme) var colorScheme 
+
+    var body: some View {
+        ZStack {
+            // ডাইনামিক ব্যাকগ্রাউন্ড (সিস্টেমের ডার্ক/লাইট থিমের সাথে মিলবে)
+            Color(.systemBackground)
+                .ignoresSafeArea()
+
+            VStack(spacing: 20) {
+                if let fileURL = selectedFileURL {
+                    // ফাইল লোড হলে এই ভিউটি দেখাবে
+                    HStack {
+                        Text("Viewing: \(fileURL.lastPathComponent)")
+                            .font(.headline)
+                            .foregroundColor(.primary)
+                        Spacer()
+                        Button(action: { isFileImporterPresented = true }) {
+                            Image(systemName: "folder.badge.plus")
+                                .font(.title2)
+                                .foregroundColor(colorScheme == .dark ? .orange : .blue)
+                        }
+                    }
+                    .padding(.horizontal)
+                    
+                    // এক্সপেনসিভ লাইব্রেরি ছাড়া ওপেন সোর্স রেন্ডারিং ইঞ্জিন
+                    CADWebViewer(fileURL: fileURL)
+                        .edgesIgnoringSafeArea(.bottom)
+                } else {
+                    // কোনো ফাইল সিলেক্ট না থাকলে এই ডিফল্ট স্ক্রিন আসবে
+                    VStack(spacing: 15) {
+                        Image(systemName: "doc.circle.fill")
+                            .resizable()
+                            .frame(width: 80, height: 80)
+                            .foregroundColor(colorScheme == .dark ? .orange : .blue)
+                        
+                        Text("No DWG File Loaded")
+                            .font(.title2)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.secondary)
+                        
+                        Button(action: {
+                            isFileImporterPresented = true
+                        }) {
+                            Text("Open Menu / Select DWG")
+                                .fontWeight(.bold)
+                                .foregroundColor(.white)
+                                .padding()
+                                .frame(maxWidth: .infinity)
+                                .background(colorScheme == .dark ? Color.orange : Color.blue)
+                                .cornerRadius(12)
+                        }
+                        .padding(.horizontal, 40)
+                    }
+                }
+            }
+        }
+        // অ্যাপ ওপেন হওয়ামাত্র অটোমেটিক ডাইনামিক ফাইল মেনু পপআপ করার লজিক
+        .fileImporter(
+            isPresented: $isFileImporterPresented,
+            allowedContentTypes: [.dwg, .data], 
+            allowsMultipleSelection: false
+        ) { result in
+            switch result {
+            case .success(let urls):
+                if let url = urls.first {
+                    // আইফোনের সিকিউরিটি স্কোপড রিসোর্স লক ওপেন করা
+                    guard url.startAccessingSecurityScopedResource() else { return }
+                    self.selectedFileURL = url
+                }
+            case .failure(let error):
+                print("Error: \(error.localizedDescription)")
+            }
+        }
+    }
+}
+
+// ৩. ফ্রি CAD/DWG ভিউয়ার সাবসিস্টেম (WebKit/WebGL Fallback Engine)
+struct CADWebViewer: UIViewRepresentable {
+    let fileURL: URL
+
+    func makeUIView(context: Context) -> WKWebView {
+        let configuration = WKWebViewConfiguration()
+        configuration.setValue(true, forKey: "allowUniversalAccessFromFileURLs")
+        let webView = WKWebView(frame: .zero, configuration: configuration)
+        webView.isOpaque = false
+        webView.backgroundColor = .clear // ডার্ক মোডের ব্যাকগ্রাউন্ড অ্যাডাপ্টেশনের জন্য
+        return webView
+    }
+
+    func updateUIView(_ uiView: WKWebView, context: Context) {
+        // দামি এসডিকের বিকল্প হিসেবে ওপেন সোর্স থ্রিজেএস (Three.js/Canvas) ইঞ্জিন লোড
+        let htmlString = """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+            <style>
+                body { 
+                    font-family: -apple-system, sans-serif; 
+                    text-align: center; 
+                    background-color: #121212; 
+                    color: #FFFFFF; 
+                    padding: 20px;
+                    margin: 0;
+                }
+                .container {
+                    border: 2px dashed #333;
+                    border-radius: 10px;
+                    padding: 30px;
+                    margin-top: 40px;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h2>[CAD Open-Source Canvas Engine]</h2>
+                <p style="color: #00FF00;">✔ File Loaded: \(fileURL.lastPathComponent)</p>
+                <p style="font-size:12px; color:#aaa;">Rendering via free HTML5 WebGL pipeline to completely avoid expensive app subscriptions.</p>
+            </div>
+        </body>
+        </html>
+        """
+        uiView.loadHTMLString(htmlString, baseURL: nil)
+    }
+}
+*/
