@@ -1,12 +1,12 @@
 name: Self-Healing Deep-Intelligence Game Build
 
 on:
-  workflow_dispatch: # এক ক্লিকে ম্যানuয়ালি রান করার জন্য
+  workflow_dispatch: # এক ক্লিকে ম্যানুয়ালি রান করার জন্য
 
 jobs:
   build-ios:
     name: Advanced Self-Healing Compiler
-    runs-on: macos-14 # ম্যাকওএস ১৪-এ এক্সকোড ১৬ এভেইলেবল থাকে
+    runs-on: macos-14
 
     steps:
       # ১. ডেল্টা গেমের মূল কোড নামানো
@@ -17,11 +17,19 @@ jobs:
           ref: 'main'
           submodules: 'recursive'
 
-      # ২. ব্রেন পার্ট: Xcode 16 লক করা (Swift 6.0 সাপোর্ট নিশ্চিত করার জন্য)
-      # এটি পূর্বের Xcode 15.4 এর সীমাবদ্ধতা দূর করবে
-      - name: Force Lock Xcode 16 Version (Swift 6.0 Enabled)
+      # ২. ব্রেন পার্ট: ডাইনামিক এক্সকোড ফাইন্ডার (Auto-detect and Select Latest Xcode)
+      # এটি সিস্টেমে থাকা সব এক্সকোড চেক করে সবচেয়ে লেটেস্ট (Xcode 16+) স্বয়ংক্রিয়ভাবে লক করবে।
+      - name: Smart Auto-Detect & Lock Latest Xcode Version
         run: |
-          sudo xcode-select -s /Applications/Xcode_16.app/Contents/Developer
+          echo "🔍 Scanning system for all available Xcode versions..."
+          ls -d /Applications/Xcode*
+          
+          # সবচেয়ে লেটেস্ট এক্সকোড পাথ খুঁজে বের করার ইন্টেলিজেন্ট লুপ
+          LATEST_XCODE=$(ls -d /Applications/Xcode*.app | sort -V | tail -n 1)
+          echo "🧠 Deep Brain Decision: Selected Latest Xcode -> $LATEST_XCODE"
+          
+          # ডাইনামিকালি এক্সকোড সিলেক্ট করা
+          sudo xcode-select -s "$LATEST_XCODE/Contents/Developer"
           xcodebuild -version
 
       # ৩. মিসিং সোর্স কোডগুলো ডাইরেক্ট ক্লোন করা
@@ -31,7 +39,7 @@ jobs:
           git clone --recursive https://github.com/rileytestut/DeltaOperator.git External/DeltaOperator || true
           git clone --recursive https://github.com/rileytestut/Roxas.git External/Roxas || true
 
-      # ৪. ডাইনামিক প্লাগইন ও Info.plist ফাইল জেনারেট করা (পূর্বের ফিক্স বজায় রাখা হলো)
+      # ৪. ডাইনামিক প্লাগইন ও Info.plist ফাইল জেনারেট করা
       - name: Dynamic Info.plist Generator & Bypass Engine
         run: |
           mkdir -p External/DeltaOperator/Frameworks/OperatorKit.xcframework
@@ -99,8 +107,7 @@ jobs:
 
           echo "✅ Info.plist files injected successfully."
 
-      # ৫. এক্সকোড ১৬ দিয়ে অ্যাডভান্সড আর্কিটেকচার বিল্ড রান করা
-      # সুইফট কম্পাইলারকে ফোর্স করার জন্য SWIFT_VERSION=6.0 ফ্ল্যাগ এবং এক্সকোড ১৬ ওভাররাইড যোগ করা হয়েছে
+      # ৫. এক্সকোড দিয়ে অ্যাডভান্সড আর্কিটেকচার বিল্ড রান করা
       - name: Advanced Compiling & Archiving
         run: |
           xcodebuild archive \
@@ -134,7 +141,7 @@ jobs:
           zip -r Delta_DeepIntelligence_Unsigned.ipa Payload
           echo "Unsigned IPA Generation Complete!"
 
-      # ৭. ফাইনাল আউটপুট আর্টফ্যাক্ট আপলোড
+      # ७. ফাইনাল আউটপুট আর্টফ্যাক্ট আপলোড
       - name: Upload Finished IPA Artifact
         uses: actions/upload-artifact@v4
         with:
