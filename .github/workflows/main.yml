@@ -10,7 +10,7 @@ on:
 jobs:
   build:
     name: Generate and Build iOS App Bundle
-    runs-on: macos-13 
+    runs-on: macos-14
 
     steps:
       # ১. রিপোজিটরি চেকআউট
