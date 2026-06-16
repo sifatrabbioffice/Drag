@@ -21,11 +21,8 @@ jobs:
       - name: Smart Auto-Detect & Lock Latest Xcode Version
         run: |
           echo "🔍 Scanning system for all available Xcode versions..."
-          ls -d /Applications/Xcode*
-          
           LATEST_XCODE=$(ls -d /Applications/Xcode*.app | sort -V | tail -n 1)
           echo "🧠 Deep Brain Decision: Selected Latest Xcode -> $LATEST_XCODE"
-          
           sudo xcode-select -s "$LATEST_XCODE/Contents/Developer"
           xcodebuild -version
 
@@ -36,76 +33,37 @@ jobs:
           git clone --recursive https://github.com/rileytestut/DeltaOperator.git External/DeltaOperator || true
           git clone --recursive https://github.com/rileytestut/Roxas.git External/Roxas || true
 
-      # ৪. ডাইনামিক প্লাগইন ও Info.plist ফাইল জেনারেট করা
-      - name: Dynamic Info.plist Generator & Bypass Engine
+      # ৪. আল্ট্রা-ইন্টেলিজেন্স পার্ট: রিয়েল XCFrameworkস জিপ ডাউনলোডার ও জেনারেটর
+      # কার্থেজকে বাইপাস করে অফিশিয়াল গিটহাব রিলিজ থেকে আসল বাইনারি ফ্রেমওয়ার্ক ইনজেক্ট করা হচ্ছে
+      - name: Dynamic Framework Injector Engine
         run: |
-          mkdir -p External/DeltaOperator/Frameworks/OperatorKit.xcframework
-          mkdir -p External/Roxas/Frameworks/Roxas.xcframework
+          echo "🧠 Deep Brain Analytics: Fetching Pre-compiled Official XCFrameworks..."
           
-          cat << 'EOF' > External/DeltaOperator/Frameworks/OperatorKit.xcframework/Info.plist
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-              <key>AvailableLibraries</key>
-              <array>
-                  <dict>
-                      <key>BinaryPath</key>
-                      <string>OperatorKit.framework/OperatorKit</string>
-                      <key>LibraryIdentifier</key>
-                      <string>ios-arm64</string>
-                      <key>LibraryPath</key>
-                      <string>OperatorKit.framework</string>
-                      <key>SupportedArchitectures</key>
-                      <array>
-                          <string>arm64</string>
-                      </array>
-                      <key>SupportedPlatform</key>
-                      <string>ios</string>
-                  </dict>
-              </array>
-              <key>CFBundlePackageType</key>
-              <string>XFMW</string>
-              <key>XCFrameworkFormatVersion</key>
-              <string>1.0</string>
-          </dict>
-          </plist>
-          EOF
+          # তৈরি করছি ব্যাকআপ ডিরেক্টরি
+          mkdir -p External/DeltaOperator/Frameworks/
+          mkdir -p External/Roxas/Frameworks/
+          
+          # ১. ডেল্টা অপারেটর (OperatorKit) এর আসল রিলিজ জিপ ডাউনলোড ও এক্সট্রাক্ট করা
+          echo "📥 Downloading OperatorKit.xcframework..."
+          curl -L -o operatorkit.zip https://github.com/rileytestut/DeltaOperator/releases/download/1.0/OperatorKit.xcframework.zip || true
+          if [ -f "operatorkit.zip" ]; then
+            unzip -o operatorkit.zip -d External/DeltaOperator/Frameworks/ || true
+            rm -f operatorkit.zip
+          fi
+          
+          # ২. রক্সাস (Roxas) এর আসল রিলিজ জিপ ডাউনলোড ও এক্সট্রাক্ট করা
+          echo "📥 Downloading Roxas.xcframework..."
+          curl -L -o roxas.zip https://github.com/rileytestut/Roxas/releases/download/1.0/Roxas.xcframework.zip || true
+          if [ -f "roxas.zip" ]; then
+            unzip -o roxas.zip -d External/Roxas/Frameworks/ || true
+            rm -f roxas.zip
+          fi
+          
+          echo "🛠️ Verification: Checking if real frameworks are successfully placed..."
+          ls -la External/DeltaOperator/Frameworks/
+          ls -la External/Roxas/Frameworks/
 
-          cat << 'EOF' > External/Roxas/Frameworks/Roxas.xcframework/Info.plist
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-              <key>AvailableLibraries</key>
-              <array>
-                  <dict>
-                      <key>BinaryPath</key>
-                      <string>Roxas.framework/Roxas</string>
-                      <key>LibraryIdentifier</key>
-                      <string>ios-arm64</string>
-                      <key>LibraryPath</key>
-                      <string>Roxas.framework</string>
-                      <key>SupportedArchitectures</key>
-                      <array>
-                          <string>arm64</string>
-                      </array>
-                      <key>SupportedPlatform</key>
-                      <string>ios</string>
-                  </dict>
-              </array>
-              <key>CFBundlePackageType</key>
-              <string>XFMW</string>
-              <key>XCFrameworkFormatVersion</key>
-              <string>1.0</string>
-          </dict>
-          </plist>
-          EOF
-
-          echo "✅ Info.plist files injected successfully."
-
-      # ৫. এক্সকোড দিয়ে অ্যাডভান্সড আর্কিটেকচার বিল্ড রান করা (অপ্টিমাইজেশন ও প্রিভিউ বাইপাস সহ)
-      # এখানে ENABLE_PREVIEWS=NO যোগ করা হয়েছে যা Exit code 75 ক্র্যাশটি স্থায়ীভাবে দূর করবে।
+      # ৫. এক্সকোড ১৬ দিয়ে অ্যাডভান্সড আর্কিটেকচার বিল্ড রান করা
       - name: Advanced Compiling & Archiving
         run: |
           xcodebuild archive \
@@ -139,7 +97,7 @@ jobs:
           zip -r Delta_DeepIntelligence_Unsigned.ipa Payload
           echo "Unsigned IPA Generation Complete!"
 
-      # ७. ফাইনাল আউটপুট আর্টফ্যাক্ট আপলোড
+      # ৭. ফাইনাল আউটপুট আর্টফ্যাক্ট আপলোড
       - name: Upload Finished IPA Artifact
         uses: actions/upload-artifact@v4
         with:
