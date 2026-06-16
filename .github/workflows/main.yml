@@ -77,14 +77,16 @@ jobs:
                           }
                       }
                   }
+                  // ফাইল ইম্পোর্টার মডিউল: এখানে কাস্টম ডিক্লেয়ারেশন দিয়ে .dwg ফাইল আনলক করা হয়েছে
                   .fileImporter(
                       isPresented: $isFileImporterPresented,
-                      allowedContentTypes: [.data], 
+                      allowedContentTypes: [UTType(tag: "dwg", tagClass: .filenameExtension, conformingTo: nil)!, UTType(tag: "DWG", tagClass: .filenameExtension, conformingTo: nil)!], 
                       allowsMultipleSelection: false
                   ) { result in
                       switch result {
                       case .success(let urls):
                           if let url = urls.first {
+                              // iOS Security Sandbox access অনুমতি প্রদান
                               guard url.startAccessingSecurityScopedResource() else { return }
                               self.selectedFileURL = url
                           }
@@ -290,7 +292,7 @@ jobs:
       - name: Select Xcode Version
         run: sudo xcode-select -s /Applications/Xcode_15.2.app
 
-      # ৫. জেনুইন এক্সকোড কমান্ড দিয়ে প্রজেক্ট কমপাইল করা (Exit Code 65 ফিক্সড)
+      # ৫. এক্সকোড কমান্ড দিয়ে প্রজেক্ট কমপাইল করা 
       - name: Build Xcode Project (Unsigned)
         run: |
           xcodebuild clean build \
@@ -303,12 +305,12 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             PROVISIONING_PROFILE_SPECIFIER=""
 
-      # 🔍 ৬. অ্যাপ বান্ডেল (.app) লোড করে জেনুইন আইপিএ (IPA) তৈরি ও ভেরিফিকেশন করা
+      # ৬. অ্যাপ বান্ডেল (.app) লোড করে জেনুইন আইপিএ (IPA) তৈরি ও ভেরিফিকেশন করা
       - name: Package Payload into Working IPA
         run: |
           mkdir -p Payload
           
-          # বিল্ড আউটপুট (DerivedData) থেকে .app ফাইলটি খোঁজা 
+          # বিল্ড আউটপুট থেকে .app ফাইলটি লোড করা
           APP_PATH=$(find /Users/runner/Library/Developer/Xcode/DerivedData -name "DWGViewer.app" -type d 2>/dev/null | head -n 1)
           
           echo "Found App Bundle at: $APP_PATH"
