@@ -1,21 +1,21 @@
-name: Build Large 3D Game (SuperTuxKart Unsigned IPA)
+name: Build Massive 3D Game (Doom 3 iOS Unsigned IPA)
 
 on:
-  workflow_dispatch: # গিটহাব থেকে ম্যানুয়ালি এক ক্লিকে রান করার জন্য
+  workflow_dispatch: # গিটহাব থেকে ম্যানুয়ালি রান করার জন্য
 
 jobs:
   build-ios:
-    name: Compile Massive C++ Game
-    runs-on: macos-14 # অ্যাপলের লেটেস্ট রানার এনভায়রনমেন্ট
+    name: Build Native C++ 3D Game
+    runs-on: macos-14
 
     steps:
-      # ১. গেমের অফিশিয়াল এবং বিশাল সোর্স কোড ডাউনলোড করা
-      - name: Checkout SuperTuxKart Source Code
+      # ১. গেমের বিশাল ৩D সোর্স কোড সরাসরি ক্লোন করা (সব সাব-মডিউলসহ)
+      - name: Checkout Doom 3 iOS Source Code
         uses: actions/checkout@v4
         with:
-          repository: 'supertuxkart/stk-code'
+          repository: 'fabiensanglard/d3m' # এটি একটি বিশ্ববিখ্যাত এবং বিশাল সি++ গেম ইঞ্জিন পোর্ট
           ref: 'master'
-          submodules: 'recursive' # এই বড় গেমের ভেতরের সব থ্রিডি ইঞ্জিন পার্টস ডাউনলোড করবে
+          submodules: 'recursive'
 
       # ২. সঠিক Xcode ভার্সন লক করা
       - name: Set up Xcode Version
@@ -23,48 +23,39 @@ jobs:
           sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
           xcodebuild -version
 
-      # ৩. বড় সি++ প্রজেক্টের জন্য বিল্ড ডিরেক্টরি ও কনফিগারেশন তৈরি (CMake/Xcode generation)
-      # নোট: এই গেমটিতে সরাসরি এক্সকোড প্রজেক্ট জেনারেট করার জন্য বিল্ড স্ক্রিপ্ট ডিফাইন করা থাকে।
-      - name: Prepare Xcode Workspace
+      # ৩. কোনো Apple ID বা কোড সাইনিং ছাড়াই সরাসরি Xcode প্রজেক্ট আর্কাইভ করা
+      # এখানে আমরা সরাসরি .xcodeproj ফাইলটি বিল্ড করছি, তাই কোনো CMake এরর আসবে না
+      - name: Build and Archive Project
         run: |
-          mkdir build
-          cd build
-          # আইওএস ডিভাইসের জন্য এক্সকোড প্রজেক্ট মেক করা হচ্ছে
-          cmake .. -G"Xcode" -DCMAKE_TOOLCHAIN_FILE=../cmake/ios.toolchain.cmake -DPLATFORM=OS64
-
-      # ৪. কোনো সাইনিং (Apple ID) ছাড়াই xcodebuild দিয়ে গেমটি আর্কাইভ করা
-      - name: Build and Archive Massive Game
-        run: |
-          cd build
           xcodebuild archive \
-            -xcodeproj SuperTuxKart.xcodeproj \
-            -scheme SuperTuxKart \
+            -project *.xcodeproj \
+            -scheme "d3m" \
             -configuration Release \
             -sdk iphoneos \
-            -archivePath $GITHUB_WORKSPACE/build/SuperTuxKart.xcarchive \
+            -archivePath $GITHUB_WORKSPACE/build/Doom3.xcarchive \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
             PROVISIONING_PROFILE_SPECIFIER=""
 
-      # ৫. আর্কাইভ থেকে মূল .app ফাইল বের করে Unsigned .ipa তৈরি করা
+      # ৪. আর্কাইভ থেকে মূল .app ফাইল বের করে Unsigned .ipa প্যাক করা
       - name: Packaging into Unsigned IPA
         run: |
           mkdir -p $GITHUB_WORKSPACE/Payload
           
-          # তৈরি হওয়া বিশাল থ্রিডি গেমের .app ফাইলটি পেলোড ফোল্ডারে কপি করা হচ্ছে
-          cp -r $GITHUB_WORKSPACE/build/SuperTuxKart.xcarchive/Products/Applications/*.app $GITHUB_WORKSPACE/Payload/
+          # তৈরি হওয়া বিশাল .app ফাইলটি পেলোড ফোল্ডারে নেওয়া হচ্ছে
+          cp -r $GITHUB_WORKSPACE/build/Doom3.xcarchive/Products/Applications/*.app $GITHUB_WORKSPACE/Payload/
           
-          # পেলোড ফোল্ডারটিকে জিপ করে আইপিএ ফরম্যাট দেওয়া হচ্ছে
+          # পেলোড ফোল্ডারটিকে জিপ করে .ipa ফরম্যাট দেওয়া হচ্ছে
           cd $GITHUB_WORKSPACE
-          zip -r SuperTuxKart_Unsigned.ipa Payload
+          zip -r Doom3_Unsigned.ipa Payload
           
-          echo "Massive 3D Game IPA successfully created!"
+          echo "Massive 3D Game Unsigned IPA successfully created!"
 
-      # ৬. তৈরি হওয়া রেডি .ipa ফাইলটি গিটহাবে আপলোড করা
+      # ৫. তৈরি হওয়া .ipa ফাইলটি গিটহাবে আপলোড করা
       - name: Upload Massive Game IPA Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: SuperTuxKart-3D-Game-IPA
-          path: ${{ github.workspace }}/SuperTuxKart_Unsigned.ipa
-          retention-days: 7 # ডাউনলোড করার জন্য ৭ দিন সময় থাকবে
+          name: Doom3-3D-Game-IPA
+          path: ${{ github.workspace }}/Doom3_Unsigned.ipa
+          retention-days: 7
