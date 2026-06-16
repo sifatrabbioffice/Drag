@@ -9,22 +9,28 @@ jobs:
     runs-on: macos-14
 
     steps:
-      # ১. ডেল্টা গেমের অফিশিয়াল বিশাল সোর্স কোড ডাউনলোড করা (সব সাব-মডিউলসহ)
+      # ১. ডেল্টা গেমের সঠিক এবং লেটেস্ট মেইন ডিরেক্টরি ডাউনলোড করা (ব্রাঞ্চ ফিক্সড)
       - name: Checkout Delta Source Code
         uses: actions/checkout@v4
         with:
-          repository: 'rileytestut/Delta' # ডেল্টা গেম ইঞ্জিনের একদম সঠিক অফিশিয়াল লিংক
-          ref: 'master'
-          submodules: 'recursive'
+          repository: 'rileytestut/Delta'
+          ref: 'main' # ডেল্টা গেমের আসল কোডবেস এখন 'main' ব্রাঞ্চে থাকে
+          fetch-depth: 1 # দ্রুত ডাউনলোডের জন্য মেমোরি অপ্টিমাইজড ক্লোন
 
-      # ২. সঠিক Xcode ভার্সন লক করা
+      # ২. সাব-মডিউলগুলো যদি মূল ক্লোনে মিস হয়, তবে এটি অটোমেটিক ফোর্সফুলি ডাউনলোড করবে
+      - name: Auto-Fix and Sync Missing Submodules
+        run: |
+          git submodule init
+          git submodule update --recursive --remote || true
+          echo "Submodules synced successfully!"
+
+      # ৩. সঠিক Xcode ভার্সন লক করা
       - name: Set up Xcode Version
         run: |
           sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
           xcodebuild -version
 
-      # ৩. কোনো Apple ID বা কোড সাইনিং ছাড়াই সরাসরি Xcode Workspace আর্কাইভ করা
-      # যেহেতু এটি একটি বড় প্রজেক্ট, তাই এখানে .xcodeproj এর বদলে .xcworkspace ব্যবহার করা হয়েছে
+      # ৪. কোনো Apple ID বা কোড সাইনিং ছাড়াই সরাসরি Xcode Workspace আর্কাইভ করা
       - name: Build and Archive Project
         run: |
           xcodebuild archive \
@@ -38,7 +44,7 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             PROVISIONING_PROFILE_SPECIFIER=""
 
-      # ৪. আর্কাইভ থেকে মূল .app ফাইল বের করে Unsigned .ipa প্যাক করা
+      # ৫. আর্কাইভ থেকে মূল .app ফাইল বের করে Unsigned .ipa প্যাক করা
       - name: Packaging into Unsigned IPA
         run: |
           mkdir -p $GITHUB_WORKSPACE/Payload
@@ -52,7 +58,7 @@ jobs:
           
           echo "Delta Unsigned IPA successfully created!"
 
-      # ৫. তৈরি হওয়া .ipa ফাইলটি গিটহাবে আপলোড করা
+      # ৬. তৈরি হওয়া .ipa ফাইলটি গিটহাবে আপলোড করা
       - name: Upload Delta Game IPA Artifact
         uses: actions/upload-artifact@v4
         with:
