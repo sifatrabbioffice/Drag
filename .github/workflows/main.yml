@@ -1,476 +1,43 @@
-name: Build Unsigned iOS IPA From Scratch
+name: Build AutoCAD DWG Viewer IPA
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "master" ]
   pull_request:
-    branches: [ "main" ]
-  workflow_dispatch: 
+    branches: [ "main", "master" ]
+  workflow_dispatch: # এর মাধ্যমে আপনি ম্যানুয়ালিও বিল্ড স্টার্ট করতে পারবেন
 
 jobs:
   build:
-    name: Generate Valid Project and Build IPA
-    runs-on: macos-14 
+    name: Build IPA using macOS Runner
+    runs-on: macos-13 # অ্যাপল সিলিকন/ইনটেল ম্যাক ওএস রানার এক্সকোড ১৫ সহ
 
     steps:
-      # ১. কোড চেকআউট করা
-      - name: Checkout Source Code
+      # ১. রিপোজিটরি থেকে কোড চেকআউট করা
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # ২. রানারের রুটে সরাসরি সোর্স ফাইল এবং এক্সকোড প্রজেক্ট ডিরেক্টরি তৈরি
-      - name: Generate True Xcode Project Structure
+      # ২. সঠিক এক্সকোড ভার্সন সিলেক্ট করা
+      - name: Set up Xcode Version
         run: |
-          mkdir -p DWGViewer.xcodeproj
-          
-          # ContentView.swift ফাইল তৈরি (সরাসরি মেইন ট্র্যাকিং পাথে)
-          cat << 'EOF' > ContentView.swift
-          import SwiftUI
-          import UniformTypeIdentifiers
-          import WebKit
+          sudo xcode-select -s /Applications/Xcode_15.2.app/Contents/Developer
+          xcodebuild -version
 
-          // ওএস লেভেলে ফাইল ফরম্যাট রেজিস্টার্ড করা
-          extension UTType {
-              static var dwg: UTType {
-                  UTType(importedAs: "com.autodesk.dwg", conformingTo: .data)
-              }
-          }
+      # ৩. কোকোয়াপডস বা ডিপেন্ডেন্সি ইনস্টল করা (যদি প্রজেক্টে থাকে)
+      - name: Install Pods Dependencies
+        run: |
+          if [ -f "Podfile" ]; then
+            pod install
+          else
+            echo "No Podfile found, skipping pod install."
+          fi
 
-          struct ContentView: View {
-              @State private var isFileImporterPresented = true 
-              @State private var selectedFileURL: URL?
-              @State private var fileSizeString: String = "Calculating..."
-              @State private var isProcessing: Bool = false
-              @Environment(\.colorScheme) var colorScheme 
-
-              var body: some View {
-                  ZStack {
-                      Color(.systemBackground).ignoresSafeArea()
-
-                      VStack(spacing: 0) {
-                          // হেডার সেকশন
-                          HStack {
-                              VStack(alignment: .leading, spacing: 4) {
-                                  Text("CAD Workspace")
-                                      .font(.system(size: 24, weight: .bold, design: .rounded))
-                                  if let fileURL = selectedFileURL {
-                                      Text(fileURL.lastPathComponent)
-                                          .font(.subheadline)
-                                          .foregroundColor(.secondary)
-                                          .lineLimit(1)
-                                  } else {
-                                      Text("No document loaded")
-                                          .font(.subheadline)
-                                          .foregroundColor(.secondary)
-                                  }
-                              }
-                              Spacer()
-                              Button(action: { isFileImporterPresented = true }) {
-                                  Image(systemName: "folder.badge.plus")
-                                      .font(.title2)
-                                      .foregroundColor(colorScheme == .dark ? .orange : .blue)
-                                      .padding(10)
-                                      .background(Color(.secondarySystemBackground))
-                                      .clipShape(Circle())
-                              }
-                          }
-                          .padding()
-                          .background(Color(.systemBackground))
-                          
-                          Divider()
-
-                          // মেইন ডিসপ্লে এরিয়া
-                          if isProcessing {
-                              Spacer()
-                              ProgressView("Parsing DWG Vector Elements...")
-                                  .progressViewStyle(CircularProgressViewStyle())
-                              Spacer()
-                          } else if let fileURL = selectedFileURL {
-                              // ক্যাড ভিউয়ার এবং ফাইল ডিটেইলস ইন্টিগ্রেশন
-                              VStack(spacing: 0) {
-                                  CADWebViewer(fileURL: fileURL, sizeString: fileSizeString)
-                                      .edgesIgnoringSafeArea(.bottom)
-                              }
-                          } else {
-                              Spacer()
-                              VStack(spacing: 15) {
-                                  Image(systemName: "doc.text.magnifyingglass")
-                                      .resizable()
-                                      .scaledToFit()
-                                      .frame(width: 70, height: 70)
-                                      .foregroundColor(.secondary)
-                                  
-                                  Text("Ready to Render")
-                                      .font(.headline)
-                                      .foregroundColor(.secondary)
-                                  
-                                  Button(action: { isFileImporterPresented = true }) {
-                                      Text("Select DWG Blueprint")
-                                          .fontWeight(.bold)
-                                          .foregroundColor(.white)
-                                          .padding()
-                                          .frame(maxWidth: 220)
-                                          .background(colorScheme == .dark ? Color.orange : Color.blue)
-                                          .cornerRadius(10)
-                                  }
-                              }
-                              Spacer()
-                          }
-                      }
-                  }
-                  // ফাইল ইম্পোর্টার অপ্টিমাইজেশন
-                  .fileImporter(
-                      isPresented: $isFileImporterPresented,
-                      allowedContentTypes: [.dwg], 
-                      allowsMultipleSelection: false
-                  ) { result in
-                      switch result {
-                      case .success(let urls):
-                          guard let url = urls.first else { return }
-                          
-                          isProcessing = true
-                          
-                          // ক্রুশিয়াল পার্ট: আইওএস সিকিউরিটি বাউন্ডারি ওপেন করা
-                          let accessGranted = url.startAccessingSecurityScopedResource()
-                          print("iOS Sandbox Security Access Granted: \(accessGranted)")
-                          
-                          // ফাইলের সাইজ ক্যালকুলেট করা (পেশাদার রিপোর্টিং)
-                          if let resources = try? url.resourceValues(forKeys: [.fileSizeKey]), let size = resources.fileSize {
-                              let formatter = ByteCountFormatter()
-                              formatter.countStyle = .file
-                              self.fileSizeString = formatter.string(fromByteCount: Int64(size))
-                          } else {
-                              self.fileSizeString = "Unknown Size"
-                          }
-                          
-                          // ডিলিং টাইমআউট দিয়ে ভিউ লোড করা যাতে ইন্টারফেস ফ্রিজ না হয়
-                          DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                              self.selectedFileURL = url
-                              self.isProcessing = false
-                          }
-                          
-                      case .failure(let error):
-                          print("Error selecting file: \(error.localizedDescription)")
-                      }
-                  }
-              }
-          }
-
-          // প্রফেশনাল ব্লুপ্রিন্ট রেন্ডারিং ক্যানভাস
-          struct CADWebViewer: UIViewRepresentable {
-              let fileURL: URL
-              let sizeString: String
-              
-              func makeUIView(context: Context) -> WKWebView {
-                  let configuration = WKWebViewConfiguration()
-                  // লোকাল ফাইল পাথ এক্সেস করার পারমিশন এনভায়রনমেন্ট আনলক করা
-                  configuration.setValue(true, forKey: "allowUniversalAccessFromFileURLs")
-                  let webView = WKWebView(frame: .zero, configuration: configuration)
-                  webView.isOpaque = false
-                  webView.backgroundColor = UIColor(red: 0.07, green: 0.09, blue: 0.11, alpha: 1.0) // AutoCAD Dark Slate Background
-                  return webView
-              }
-              
-              func updateUIView(_ uiView: WKWebView, context: Context) {
-                  // এইচটিএমএল ক্যানভাস গ্রিড জেনারেট করা যা ড্রয়িং গ্রিড লাইনের মতো দেখাবে
-                  let htmlString = """
-                  <!DOCTYPE html>
-                  <html>
-                  <head>
-                      <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-                      <style>
-                          body { 
-                              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
-                              background-color: #12181f; 
-                              color: #e2e8f0; 
-                              margin: 0; 
-                              padding: 20px;
-                              display: flex;
-                              flex-direction: column;
-                              height: 100vh;
-                              box-sizing: border-box;
-                          }
-                          .cad-container {
-                              border: 1px solid #2d3748;
-                              background-color: #0b0f14;
-                              background-image: 
-                                  linear-gradient(to right, #1a202c 1px, transparent 1px),
-                                  linear-gradient(to bottom, #1a202c 1px, transparent 1px);
-                              background-size: 20px 20px;
-                              flex-grow: 1;
-                              border-radius: 8px;
-                              position: relative;
-                              display: flex;
-                              align-items: center;
-                              justify-content: center;
-                              overflow: hidden;
-                          }
-                          .meta-panel {
-                              background: #1e293b;
-                              border-radius: 6px;
-                              padding: 12px;
-                              margin-bottom: 15px;
-                              font-size: 14px;
-                              border-left: 4px solid #3b82f6;
-                          }
-                          .blueprint-line {
-                              stroke: #38bdf8;
-                              stroke-width: 2;
-                              fill: none;
-                          }
-                          .axis-line {
-                              stroke: #ef4444;
-                              stroke-width: 1;
-                          }
-                      </style>
-                  </head>
-                  <body>
-                      <div class="meta-panel">
-                          <strong>📄 File Name:</strong> \(fileURL.lastPathComponent)<br>
-                          <strong>⚖ File Size:</strong> \(sizeString)<br>
-                          <strong>🛠 Status:</strong> CAD Sandbox Stream Connected Successfully
-                      </div>
-                      <div class="cad-container">
-                          <!-- ভেক্টর ক্যানভাস যা গ্রিড ইঞ্জিন রিপ্রেজেন্ট করে -->
-                          <svg width="100%" height="100%" style="position: absolute; top: 0; left: 0;">
-                              <!-- X/Y Axis -->
-                              <line x1="0" y1="50%" x2="100%" y2="50%" class="axis-line" stroke-dasharray="5,5"/>
-                              <line x1="50%" y1="0" x2="50%" y2="100%" class="axis-line" stroke-dasharray="5,5"/>
-                              
-                              <circle cx="50%" cy="50%" r="60" class="blueprint-line" style="stroke: #10b981;" />
-                              <circle cx="50%" cy="50%" r="40" class="blueprint-line" style="stroke: #10b981; stroke-dasharray: 4,4;" />
-                              <rect x="35%" y="35%" width="30%" height="30%" class="blueprint-line" />
-                              <polygon points="100,50 150,150 50,150" class="blueprint-line" style="stroke: #f59e0b;" transform="translate(50, 80)" />
-                          </svg>
-                          <span style="z-index: 10; color: #64748b; font-size: 12px; position: absolute; bottom: 10px; right: 10px;">Model Space (2D)</span>
-                      </div>
-                  </body>
-                  </html>
-                  """
-                  uiView.loadHTMLString(htmlString, baseURL: fileURL.deletingLastPathComponent())
-              }
-          }
-          EOF
-
-          # DWGViewerApp.swift (Main Entry Point) তৈরি করা
-          cat << 'EOF' > DWGViewerApp.swift
-          import SwiftUI
-
-          @main
-          struct DWGViewerApp: App {
-              var body: some Scene {
-                  WindowGroup {
-                      ContentView()
-                  }
-              }
-          }
-          EOF
-
-          # ৪. ইনফো লিস্ট (Info.plist) তৈরি যা ওএস লেভেলে DWG সাপোর্ট আনলক করবে
-          cat << 'EOF' > Info.plist
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-              <key>CFBundleIdentifier</key>
-              <string>com.freecad.DWGViewer</string>
-              <key>CFBundleExecutable</key>
-              <string>DWGViewer</string>
-              <key>CFBundleName</key>
-              <string>DWGViewer</string>
-              <key>CFBundleDevelopmentRegion</key>
-              <string>en</string>
-              <key>CFBundleInfoDictionaryVersion</key>
-              <string>6.0</string>
-              <key>CFBundlePackageType</key>
-              <string>APPL</string>
-              <key>CFBundleShortVersionString</key>
-              <string>1.0</string>
-              <key>CFBundleVersion</key>
-              <string>1</string>
-              <key>LSRequiresIPhoneOS</key>
-              <true/>
-              <key>UIApplicationSceneManifest</key>
-              <dict>
-                  <key>UIApplicationSupportsMultipleScenes</key>
-                  <false/>
-              </dict>
-              <key>UTImportedTypeDeclarations</key>
-              <array>
-                  <dict>
-                      <key>UTTypeIdentifier</key>
-                      <string>com.autodesk.dwg</string>
-                      <key>UTTypeConformsTo</key>
-                      <array>
-                          <string>public.data</string>
-                      </array>
-                      <key>UTTypeDescription</key>
-                      <string>AutoCAD DWG Drawing</string>
-                      <key>UTTypeTagSpecification</key>
-                      <dict>
-                          <key>public.filename-extension</key>
-                          <array>
-                              <string>dwg</string>
-                              <string>DWG</string>
-                          </array>
-                          <key>public.mime-type</key>
-                          <array>
-                              <string>image/vnd.dwg</string>
-                          </array>
-                      </dict>
-                  </dict>
-              </array>
-          </dict>
-          </plist>
-          EOF
-
-          # ৩. এক্সকোড ম্যাপ মেটাডাটা প্রজেক্ট ফাইল (project.pbxproj) জেনারেট করা
-          cat << 'EOF' > DWGViewer.xcodeproj/project.pbxproj
-          // !$*UTF8*$!
-          {
-              archiveVersion = 1;
-              classes = {};
-              objectVersion = 56;
-              objects = {
-                  /* Begin PBXBuildFile section */
-                  10010001 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10010003 /* ContentView.swift */; };
-                  10010002 /* DWGViewerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10010004 /* DWGViewerApp.swift */; };
-                  /* End PBXBuildFile section */
-
-                  /* Begin PBXFileReference section */
-                  10010003 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ContentView.swift; path = ContentView.swift; sourceTree = "<group>"; };
-                  10010004 /* DWGViewerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DWGViewerApp.swift; path = DWGViewerApp.swift; sourceTree = "<group>"; };
-                  10010005 /* DWGViewer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DWGViewer.app; sourceTree = BUILT_PRODUCTS_DIR; };
-                  /* End PBXFileReference section */
-
-                  /* Begin PBXFrameworksBuildPhase section */
-                  10010006 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
-                  /* End PBXFrameworksBuildPhase section */
-
-                  /* Begin PBXGroup section */
-                  10010007 /* CustomGroup */ = {
-                      isa = PBXGroup;
-                      children = (
-                          10010003 /* ContentView.swift */,
-                          10010004 /* DWGViewerApp.swift */,
-                          10010005 /* DWGViewer.app */,
-                      );
-                      sourceTree = "<group>";
-                  };
-                  /* End PBXGroup section */
-
-                  /* Begin PBXNativeTarget section */
-                  10010008 /* DWGViewer */ = {
-                      isa = PBXNativeTarget;
-                      buildConfigurationList = 10010011 /* Build configuration list for PBXNativeTarget "DWGViewer" */;
-                      buildPhases = (
-                          10010010 /* Sources */,
-                          10010006 /* Frameworks */,
-                      );
-                      buildRules = ();
-                      dependencies = ();
-                      name = DWGViewer;
-                      productName = DWGViewer;
-                      productReference = 10010005 /* DWGViewer.app */;
-                      productType = "com.apple.product-type.application";
-                  };
-                  /* End PBXNativeTarget section */
-
-                  /* Begin PBXProject section */
-                  10010009 /* Project object */ = {
-                      isa = PBXProject;
-                      attributes = { LastUpgradeCheck = 1500; };
-                      buildConfigurationList = 10010014 /* Build configuration list for PBXProject "DWGViewer" */;
-                      compatibilityVersion = "Xcode 14.0";
-                      developmentRegion = en;
-                      hasScannedForEncodings = 0;
-                      knownRegions = (en, Base);
-                      mainGroup = 10010007 /* CustomGroup */;
-                      productRefGroup = 10010007 /* CustomGroup */;
-                      projectDirPath = "";
-                      projectRoot = "";
-                      targets = (10010008 /* DWGViewer */);
-                  };
-                  /* End PBXProject section */
-
-                  /* Begin PBXSourcesBuildPhase section */
-                  10010010 /* Sources */ = {
-                      isa = PBXSourcesBuildPhase;
-                      buildActionMask = 2147483647;
-                      files = (
-                          10010001 /* ContentView.swift in Sources */,
-                          10010002 /* DWGViewerApp.swift in Sources */,
-                      );
-                      runOnlyForDeploymentPostprocessing = 0;
-                  };
-                  /* End PBXSourcesBuildPhase section */
-
-                  /* Begin XCBuildConfiguration section */
-                  10010012 /* Debug */ = {
-                      isa = XCBuildConfiguration;
-                      buildSettings = {
-                          ALWAYS_SEARCH_USER_PATHS = NO;
-                          ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-                          ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-                          BUNDLE_LOADER = "$(TEST_HOST)";
-                          CODE_SIGN_IDENTITY = "";
-                          CODE_SIGNING_ALLOWED = NO;
-                          CODE_SIGNING_REQUIRED = NO;
-                          CURRENT_PROJECT_VERSION = 1;
-                          INFOPLIST_FILE = Info.plist;
-                          MARKETING_VERSION = 1.0;
-                          PRODUCT_BUNDLE_IDENTIFIER = com.freecad.DWGViewer;
-                          PRODUCT_NAME = "$(TARGET_NAME)";
-                          SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
-                          TARGETED_DEVICE_FAMILY = "1,2";
-                          TARGET_NAME = DWGViewer;
-                          SWIFT_VERSION = 5.0;
-                      };
-                      name = Debug;
-                  };
-                  10010013 /* Release */ = {
-                      isa = XCBuildConfiguration;
-                      buildSettings = {
-                          ALWAYS_SEARCH_USER_PATHS = NO;
-                          ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-                          ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-                          CODE_SIGN_IDENTITY = "";
-                          CODE_SIGNING_ALLOWED = NO;
-                          CODE_SIGNING_REQUIRED = NO;
-                          CURRENT_PROJECT_VERSION = 1;
-                          INFOPLIST_FILE = Info.plist;
-                          MARKETING_VERSION = 1.0;
-                          PRODUCT_BUNDLE_IDENTIFIER = com.freecad.DWGViewer;
-                          PRODUCT_NAME = "$(TARGET_NAME)";
-                          SUPPORTED_PLATFORMS = "iphoneos";
-                          TARGETED_DEVICE_FAMILY = "1,2";
-                          TARGET_NAME = DWGViewer;
-                          SWIFT_VERSION = 5.0;
-                      };
-                      name = Release;
-                  };
-                  10010015 /* Debug Project Settings */ = { isa = XCBuildConfiguration; buildSettings = { SDKROOT = iphoneos; }; name = Debug; };
-                  10010016 /* Release Project Settings */ = { isa = XCBuildConfiguration; buildSettings = { SDKROOT = iphoneos; }; name = Release; };
-                  /* End XCBuildConfiguration section */
-
-                  /* Begin XCConfigurationList section */
-                  10010011 /* Build configuration list for PBXNativeTarget "DWGViewer" */ = { isa = XCConfigurationList; buildConfigurations = (10010012 /* Debug */, 10010013 /* Release */); defaultConfigurationName = Release; defaultConfigurationIsVisible = 0; };
-                  10010014 /* Build configuration list for PBXProject "DWGViewer" */ = { isa = XCConfigurationList; buildConfigurations = (10010015 /* Debug Project Settings */, 10010016 /* Release Project Settings */); defaultConfigurationName = Release; defaultConfigurationIsVisible = 0; };
-                  /* End XCConfigurationList section */
-              };
-              rootObject = 10010009 /* Project object */;
-          }
-          EOF
-
-      # ৫. সঠিক এক্সকোড এনভায়রনমেন্ট সিলেক্ট করা
-      - name: Select Xcode Version
-        run: sudo xcode-select -s /Applications/Xcode_15.2.app
-
-      # ৬. এক্সকোড কমান্ড দিয়ে প্রজেক্ট কমপাইল করা 
-      - name: Build Xcode Project (Unsigned)
+      # ৪. এক্সকোড প্রজেক্ট বিল্ড করা (Unsigned / Simulator বা Generic iOS Device এর জন্য)
+      - name: Build Xcode Project
         run: |
           xcodebuild clean build \
-            -project DWGViewer.xcodeproj \
-            -scheme DWGViewer \
+            -project "DWGViewer.xcodeproj" \
+            -scheme "DWGViewer" \
             -configuration Release \
             -sdk iphoneos \
             CODE_SIGNING_ALLOWED=NO \
@@ -478,26 +45,19 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             PROVISIONING_PROFILE_SPECIFIER=""
 
-      # ৭. অ্যাপ বান্ডেল (.app) লোড করে জেনুইন আইপিএ (IPA) তৈরি ও ভেরিফিকেশন করা
-      - name: Package Payload into Working IPA
+      # ৫. বিল্ড হওয়া .app ফাইলকে .ipa ফরম্যাটে কনভার্ট করা (The Professional Trick)
+      - name: Create IPA Package
         run: |
           mkdir -p Payload
-          
-          # বিল্ড আউটপুট থেকে .app ফাইলটি লোড করা
-          APP_PATH=$(find /Users/runner/Library/Developer/Xcode/DerivedData -name "DWGViewer.app" -type d 2>/dev/null | head -n 1)
-          
-          echo "Found App Bundle at: $APP_PATH"
-          cp -r "$APP_PATH" Payload/
-          
-          # জিপ ফাইল এনকোড করে প্রফেশনাল আনসাইন্ড আইপিএ তৈরি
-          zip -r DWGViewer_Unsigned.ipa Payload
-          mkdir -p out_ipa
-          cp DWGViewer_Unsigned.ipa out_ipa/
+          # বিল্ড পাথ থেকে .app ফাইলটি Payload ফোল্ডারে কপি করুন (আপনার প্রজেক্টের সঠিক পাথ দিন)
+          cp -r build/Release-iphoneos/DWGViewer.app Payload/
+          # জিপ করে .ipa এক্সটেনশন দেওয়া
+          zip -r DWGViewer.ipa Payload
+          echo "IPA Created Successfully!"
 
-      # ৮. ফাইনাল আর্টফ্যাক্ট গিটহাবে আপলোড
-      - name: Upload Finished Valid IPA
+      # ৬. তৈরি হওয়া .ipa ফাইলটি গিটহাবে আপলোড করা (যাতে আপনি ডাউনলোড করতে পারেন)
+      - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Unsigned-iOS-IPA
-          path: out_ipa/DWGViewer_Unsigned.ipa
-          retention-days: 7
+          name: AutoCAD-DWG-Viewer-IPA
+          path: DWGViewer.ipa
