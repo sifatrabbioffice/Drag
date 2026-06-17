@@ -10,7 +10,7 @@ on:
 jobs:
   build:
     name: Generate Valid Project and Build IPA
-    runs-on: macos-14
+    runs-on: macos-13 
 
     steps:
       # ১. কোড চেকআউট করা
@@ -27,6 +27,13 @@ jobs:
           import SwiftUI
           import UniformTypeIdentifiers
           import WebKit
+
+          // কাস্টম ডিক্লেয়ারেশন যাতে ওএস লেভেলে ফাইল চিনতে পারে
+          extension UTType {
+              static var dwg: UTType {
+                  UTType(importedAs: "com.autodesk.dwg", conformingTo: .data)
+              }
+          }
 
           struct ContentView: View {
               @State private var isFileImporterPresented = true 
@@ -77,17 +84,18 @@ jobs:
                           }
                       }
                   }
-                  // ফাইল ইম্পোর্টার মডিউল: এখানে কাস্টম ডিক্লেয়ারেশন দিয়ে .dwg ফাইল আনলক করা হয়েছে
+                  // এখানে সরাসরি রেজিস্টার্ড কাস্টম .dwg অবজেক্ট ব্যবহার করা হয়েছে
                   .fileImporter(
                       isPresented: $isFileImporterPresented,
-                      allowedContentTypes: [UTType(tag: "dwg", tagClass: .filenameExtension, conformingTo: nil)!, UTType(tag: "DWG", tagClass: .filenameExtension, conformingTo: nil)!], 
+                      allowedContentTypes: [.dwg], 
                       allowsMultipleSelection: false
                   ) { result in
                       switch result {
                       case .success(let urls):
                           if let url = urls.first {
-                              // iOS Security Sandbox access অনুমতি প্রদান
-                              guard url.startAccessingSecurityScopedResource() else { return }
+                              // স্যান্ডবক্স সিকিউরিটি পারমিশন রিকোয়েস্ট
+                              let access = url.startAccessingSecurityScopedResource()
+                              print("Access granted: \(access)")
                               self.selectedFileURL = url
                           }
                       case .failure(let error):
@@ -144,6 +152,64 @@ jobs:
                   }
               }
           }
+          EOF
+
+          # ৪. অরিজিনাল ইনফো লিস্ট (Info.plist) তৈরি যা ওএস লেভেলে DWG সাপোর্ট আনলক করবে
+          cat << 'EOF' > Info.plist
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleIdentifier</key>
+              <string>com.freecad.DWGViewer</string>
+              <key>CFBundleExecutable</key>
+              <string>DWGViewer</string>
+              <key>CFBundleName</key>
+              <string>DWGViewer</string>
+              <key>CFBundleDevelopmentRegion</key>
+              <string>en</string>
+              <key>CFBundleInfoDictionaryVersion</key>
+              <string>6.0</string>
+              <key>CFBundlePackageType</key>
+              <string>APPL</string>
+              <key>CFBundleShortVersionString</key>
+              <string>1.0</string>
+              <key>CFBundleVersion</key>
+              <string>1</string>
+              <key>LSRequiresIPhoneOS</key>
+              <true/>
+              <key>UIApplicationSceneManifest</key>
+              <dict>
+                  <key>UIApplicationSupportsMultipleScenes</key>
+                  <false/>
+              </dict>
+              <key>UTImportedTypeDeclarations</key>
+              <array>
+                  <dict>
+                      <key>UTTypeIdentifier</key>
+                      <string>com.autodesk.dwg</string>
+                      <key>UTTypeConformsTo</key>
+                      <array>
+                          <string>public.data</string>
+                      </array>
+                      <key>UTTypeDescription</key>
+                      <string>AutoCAD DWG Drawing</string>
+                      <key>UTTypeTagSpecification</key>
+                      <dict>
+                          <key>public.filename-extension</key>
+                          <array>
+                              <string>dwg</string>
+                              <string>DWG</string>
+                          </array>
+                          <key>public.mime-type</key>
+                          <array>
+                              <string>image/vnd.dwg</string>
+                          </array>
+                      </dict>
+                  </dict>
+              </array>
+          </dict>
+          </plist>
           EOF
 
           # ৩. এক্সকোড ম্যাপ মেটাডাটা প্রজেক্ট ফাইল (project.pbxproj) জেনারেট করা
@@ -239,9 +305,7 @@ jobs:
                           CODE_SIGNING_ALLOWED = NO;
                           CODE_SIGNING_REQUIRED = NO;
                           CURRENT_PROJECT_VERSION = 1;
-                          GENERATE_INFOPLIST_FILE = YES;
-                          INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-                          INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+                          INFOPLIST_FILE = Info.plist;
                           MARKETING_VERSION = 1.0;
                           PRODUCT_BUNDLE_IDENTIFIER = com.freecad.DWGViewer;
                           PRODUCT_NAME = "$(TARGET_NAME)";
@@ -262,9 +326,7 @@ jobs:
                           CODE_SIGNING_ALLOWED = NO;
                           CODE_SIGNING_REQUIRED = NO;
                           CURRENT_PROJECT_VERSION = 1;
-                          GENERATE_INFOPLIST_FILE = YES;
-                          INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-                          INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+                          INFOPLIST_FILE = Info.plist;
                           MARKETING_VERSION = 1.0;
                           PRODUCT_BUNDLE_IDENTIFIER = com.freecad.DWGViewer;
                           PRODUCT_NAME = "$(TARGET_NAME)";
@@ -288,11 +350,11 @@ jobs:
           }
           EOF
 
-      # ৪. সঠিক এক্সকোড এনভায়রনমেন্ট সিলেক্ট করা
+      # ৫. সঠিক এক্সকোড এনভায়রনমেন্ট সিলেক্ট করা
       - name: Select Xcode Version
         run: sudo xcode-select -s /Applications/Xcode_15.2.app
 
-      # ৫. এক্সকোড কমান্ড দিয়ে প্রজেক্ট কমপাইল করা 
+      # ৬. এক্সকোড কমান্ড দিয়ে প্রজেক্ট কমপাইল করা 
       - name: Build Xcode Project (Unsigned)
         run: |
           xcodebuild clean build \
@@ -305,7 +367,7 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             PROVISIONING_PROFILE_SPECIFIER=""
 
-      # ৬. অ্যাপ বান্ডেল (.app) লোড করে জেনুইন আইপিএ (IPA) তৈরি ও ভেরিফিকেশন করা
+      # ৭. অ্যাপ বান্ডেল (.app) লোড করে জেনুইন আইপিএ (IPA) তৈরি ও ভেরিফিকেশন করা
       - name: Package Payload into Working IPA
         run: |
           mkdir -p Payload
@@ -321,7 +383,7 @@ jobs:
           mkdir -p out_ipa
           cp DWGViewer_Unsigned.ipa out_ipa/
 
-      # ৭. ফাইনাল আর্টফ্যাক্ট গিটহাবে আপলোড
+      # ৮. ফাইনাল আর্টফ্যাক্ট গিটহাবে আপলোড
       - name: Upload Finished Valid IPA
         uses: actions/upload-artifact@v4
         with:
