@@ -100,12 +100,10 @@ jobs:
           cat << 'EOF' > AutoCADMobile/CADEngine.swift
           import UIKit
 
-          // ক্যাড ড্রয়িং এলিমেন্ট টাইপ
           enum CADShapeType {
               case line, circle, rectangle, freehand
           }
 
-          // প্রতিটি ড্রয়িং অবজেক্টের স্ট্রাকচার
           struct CADElement {
               var type: CADShapeType
               var points: [CGPoint]
@@ -113,15 +111,12 @@ jobs:
               var strokeWidth: CGFloat
           }
 
-          // ফাইল হ্যান্ডলিং (DWG/DXF পার্সার বেসিক আর্কিটেকচার)
           class CADEngine {
               var elements: [CADElement] = []
               
-              // মক ডিডব্লিউজি রিডার: ফাইল ইমপোর্ট লজিক
               func importDXF_DWG(from url: URL) -> Bool {
-                  // রিয়েল প্রজেক্টে এখানে libopencad বা dxflib C++ ব্রিজ কল হবে।
-                  // প্রাথমিক টেস্টিং এর জন্য কিছু ডেমো ভেক্টর লাইন জেনারেট করা হচ্ছে।
                   elements.removeAll()
+                  // ডেমো ভেক্টর অবজেক্ট (স্ক্রিন টেস্টের জন্য)
                   elements.append(CADElement(type: .rectangle, points: [CGPoint(x: 50, y: 150), CGPoint(x: 300, y: 400)], color: .cyan, strokeWidth: 2.0))
                   elements.append(CADElement(type: .line, points: [CGPoint(x: 50, y: 150), CGPoint(x: 300, y: 400)], color: .red, strokeWidth: 1.5))
                   elements.append(CADElement(type: .circle, points: [CGPoint(x: 175, y: 275), CGPoint(x: 275, y: 275)], color: .green, strokeWidth: 2.0))
@@ -145,7 +140,7 @@ jobs:
 
               override init(frame: CGRect) {
                   super.init(frame: frame)
-                  self.backgroundColor = UIColor(white: 0.1, alpha: 1.0) // অটোক্যাড ব্ল্যাক থিম ব্যাকগ্রাউন্ড
+                  self.backgroundColor = UIColor(white: 0.1, alpha: 1.0)
               }
 
               required init?(coder: NSCoder) {
@@ -157,10 +152,8 @@ jobs:
                   context.setLineCap(.round)
                   context.setLineJoin(.round)
 
-                  // ১. গ্রিড লাইন ড্র করা (অটোক্যাড লেআউট ফিল)
                   drawGrid(context, rect: rect)
 
-                  // ২. ইঞ্জিনে থাকা সমস্ত সেভড এলিমেন্ট ড্র করা
                   if let elements = engine?.elements {
                       for element in elements {
                           context.setStrokeColor(element.color.cgColor)
@@ -169,7 +162,6 @@ jobs:
                       }
                   }
 
-                  // ৩. ইউজার বর্তমানে যা ড্র করছে (লাইভ প্রিভিউ)
                   if !currentPoints.isEmpty {
                       context.setStrokeColor(currentColor.cgColor)
                       context.setLineWidth(currentStrokeWidth)
@@ -182,12 +174,10 @@ jobs:
                   context.setLineWidth(0.5)
                   let gridSize: CGFloat = 40.0
                   
-                  // ভার্টিক্যাল গ্রিড
                   for x in stride(from: 0, to: rect.width, by: gridSize) {
                       context.move(to: CGPoint(x: x, y: 0))
                       context.addLine(to: CGPoint(x: x, y: rect.height))
                   }
-                  // হরাইজন্টাল গ্রিড
                   for y in stride(from: 0, to: rect.height, by: gridSize) {
                       context.move(to: CGPoint(x: 0, y: y))
                       context.addLine(to: CGPoint(x: rect.width, y: y))
@@ -219,7 +209,6 @@ jobs:
                   context.strokePath()
               }
 
-              // টাচ ইন্টারঅ্যাকশন কন্ট্রোল (Drawing & Editing Tools)
               override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
                   guard let touch = touches.first else { return }
                   let location = touch.location(in: self)
@@ -258,12 +247,12 @@ jobs:
         run: |
           cat << 'EOF' > AutoCADMobile/ViewController.swift
           import UIKit
+          import UniformTypeIdentifiers // UTType এরর ফিক্স করার জন্য ইমপোর্ট করা হলো
 
           class ViewController: UIViewController, UIDocumentPickerDelegate {
               let engine = CADEngine()
               var canvasView: CanvasView!
               
-              // কন্ট্রোল প্যানেল UI এলিমেন্ট
               let topBar = UIView()
               let bottomTools = UIScrollView()
 
@@ -288,14 +277,12 @@ jobs:
                   topBar.autoresizingMask = [.flexibleWidth]
                   view.addSubview(topBar)
 
-                  // টাইটেল লেবেল
                   let titleLabel = UILabel(frame: CGRect(x: 20, y: 45, width: 150, height: 35))
                   titleLabel.text = "Premium CAD v1.0"
                   titleLabel.textColor = .white
                   titleLabel.font = UIFont.boldSystemFont(ofSize: 18)
                   topBar.addSubview(titleLabel)
 
-                  // ফাইল ইমপোর্ট বাটন (DWG/DXF এর জন্য)
                   let importBtn = UIButton(frame: CGRect(x: view.frame.width - 120, y: 45, width: 100, height: 35))
                   importBtn.setTitle("Open DWG", for: .normal)
                   importBtn.backgroundColor = .systemBlue
@@ -312,7 +299,6 @@ jobs:
                   bottomTools.autoresizingMask = [.flexibleWidth, .flexibleTopMargin]
                   view.addSubview(bottomTools)
 
-                  // ড্রয়িং টুলস বাটন এরে
                   let tools = ["Line", "Circle", "Rect", "Free", "Clear"]
                   var currentX: CGFloat = 15
                   
@@ -332,7 +318,6 @@ jobs:
               @objc func toolTapped(_ sender: UIButton) {
                   guard let title = sender.currentTitle else { return }
                   
-                  // বাটন ফিডব্যাক হাইলাইট
                   for case let btn as UIButton in bottomTools.subviews {
                       btn.backgroundColor = UIColor(white: 0.25, alpha: 1.0)
                   }
@@ -351,7 +336,8 @@ jobs:
               }
 
               @objc func openFilePicker() {
-                  let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.data], asCopy: true)
+                  // iOS 14+ এর নতুন মেথড `forOpeningContentTypes` সহ সঠিক 'UTType.item' পাস করা হলো
+                  let picker = UIDocumentPickerViewController(forOpeningContentTypes: [UTType.item], asCopy: true)
                   picker.delegate = self
                   present(picker, animated: true)
               }
@@ -359,7 +345,7 @@ jobs:
               func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
                   guard let url = urls.first else { return }
                   if engine.importDXF_DWG(from: url) {
-                      canvasView.setNeedsDisplay() // ফাইল ডেটা লোড শেষে ক্যানভাস রিফ্রেশ
+                      canvasView.setNeedsDisplay()
                   }
               }
           }
@@ -367,20 +353,18 @@ jobs:
 
       - name: Compile and Build Unsigned IPA via xcodebuild
         run: |
-          # ক্যাটালগ এবং প্রোফাইল ছাড়া সুইফট ফাইলগুলো কম্পাইল করে সাইনড বাইপাস মেক করা
           cd AutoCADMobile
           sdk_path=$(xcrun --sdk iphoneos --show-sdk-path)
           
+          # কম্পাইল করার সময় ফ্রেমওয়ার্ক এবং মেথড লিঙ্ক করা হলো
           swiftc -sdk "$sdk_path" -target arm64-apple-ios15.0 \
             -o MiniCAD \
             AppDelegate.swift SceneDelegate.swift CADEngine.swift CanvasView.swift ViewController.swift
           
-          # আইওএস রিকোয়ারমেন্ট স্ট্রাকচার জেনারেট (Payload মেকিং)
           mkdir -p Payload/MiniCAD.app
           mv MiniCAD Payload/MiniCAD.app/
           cp Info.plist Payload/MiniCAD.app/
           
-          # জিপ ফাইল জেনারেট করে .ipa ফরম্যাটে কনভার্ট
           zip -r ../MiniCAD_Unsigned.ipa Payload
           
       - name: Upload Unsigned IPA Artifact
