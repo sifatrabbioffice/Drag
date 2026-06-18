@@ -1,7 +1,7 @@
 name: Build iPhone CAD App (Unsigned IPA)
 
 on:
-  workflow_dispatch: # গিটহাব থেকে ম্যানুয়ালি রান করার জন্য
+  workflow_dispatch:
 
 jobs:
   build:
@@ -12,19 +12,23 @@ jobs:
 
       - name: Create Project Directory Structure
         run: |
-          mkdir -p AutoCADMobile
+          mkdir -p AutoCADMobile/Payload/MiniCAD.app
 
       - name: Create Info.plist
         run: |
-          cat << 'EOF' > AutoCADMobile/Info.plist
+          cat << 'EOF' > AutoCADMobile/Payload/MiniCAD.app/Info.plist
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
           <dict>
+              <key>CFBundleExecutable</key>
+              <string>MiniCAD</string>
               <key>CFBundleIdentifier</key>
               <string>com.sifat.AutoCADMobile</string>
               <key>CFBundleName</key>
               <string>MiniCAD</string>
+              <key>CFBundlePackageType</key>
+              <string>APPL</string>
               <key>CFBundleShortVersionString</key>
               <string>1.0</string>
               <key>CFBundleVersion</key>
@@ -43,13 +47,13 @@ jobs:
                               <key>UISceneConfigurationName</key>
                               <string>Default Configuration</string>
                               <key>UISceneDelegateClassName</key>
-                              <string>AutoCADMobile.SceneDelegate</string>
+                              <string>MiniCAD.SceneDelegate</string>
                           </dict>
                       </array>
                   </dict>
               </dict>
-              <key>UILaunchStoryboardName</key>
-              <string>LaunchScreen</string>
+              <key>UILaunchScreen</key>
+              <dict/>
               <key>UIRequiredDeviceCapabilities</key>
               <array>
                   <string>arm64</string>
@@ -57,8 +61,6 @@ jobs:
               <key>UISupportedInterfaceOrientations</key>
               <array>
                   <string>UIInterfaceOrientationPortrait</string>
-                  <string>UIInterfaceOrientationLandscapeLeft</string>
-                  <string>UIInterfaceOrientationLandscapeRight</string>
               </array>
           </dict>
           </plist>
@@ -71,6 +73,7 @@ jobs:
 
           @main
           class AppDelegate: UIResponder, UIApplicationDelegate {
+              var window: UIWindow?
               func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
                   return true
               }
@@ -116,7 +119,6 @@ jobs:
               
               func importDXF_DWG(from url: URL) -> Bool {
                   elements.removeAll()
-                  // ডেমো ভেক্টর অবজেক্ট (স্ক্রিন টেস্টের জন্য)
                   elements.append(CADElement(type: .rectangle, points: [CGPoint(x: 50, y: 150), CGPoint(x: 300, y: 400)], color: .cyan, strokeWidth: 2.0))
                   elements.append(CADElement(type: .line, points: [CGPoint(x: 50, y: 150), CGPoint(x: 300, y: 400)], color: .red, strokeWidth: 1.5))
                   elements.append(CADElement(type: .circle, points: [CGPoint(x: 175, y: 275), CGPoint(x: 275, y: 275)], color: .green, strokeWidth: 2.0))
@@ -247,7 +249,7 @@ jobs:
         run: |
           cat << 'EOF' > AutoCADMobile/ViewController.swift
           import UIKit
-          import UniformTypeIdentifiers // UTType এরর ফিক্স করার জন্য ইমপোর্ট করা হলো
+          import UniformTypeIdentifiers
 
           class ViewController: UIViewController, UIDocumentPickerDelegate {
               let engine = CADEngine()
@@ -336,7 +338,6 @@ jobs:
               }
 
               @objc func openFilePicker() {
-                  // iOS 14+ এর নতুন মেথড `forOpeningContentTypes` সহ সঠিক 'UTType.item' পাস করা হলো
                   let picker = UIDocumentPickerViewController(forOpeningContentTypes: [UTType.item], asCopy: true)
                   picker.delegate = self
                   present(picker, animated: true)
@@ -351,24 +352,26 @@ jobs:
           }
           EOF
 
-      - name: Compile and Build Unsigned IPA via xcodebuild
+      - name: Compile, Sign and Package App Bundle
         run: |
           cd AutoCADMobile
           sdk_path=$(xcrun --sdk iphoneos --show-sdk-path)
           
-          # কম্পাইল করার সময় ফ্রেমওয়ার্ক এবং মেথড লিঙ্ক করা হলো
+          # ১. রিয়েল মডিউল নেম এনফোর্সমেন্ট সহ সুইফট ফাইল কমপাইল
           swiftc -sdk "$sdk_path" -target arm64-apple-ios15.0 \
-            -o MiniCAD \
+            -module-name MiniCAD \
+            -emit-executable \
+            -o Payload/MiniCAD.app/MiniCAD \
             AppDelegate.swift SceneDelegate.swift CADEngine.swift CanvasView.swift ViewController.swift
           
-          mkdir -p Payload/MiniCAD.app
-          mv MiniCAD Payload/MiniCAD.app/
-          cp Info.plist Payload/MiniCAD.app/
+          # ২. Ad-hoc কোড সাইনিং (যাতে মেমরি ও কার্নেল ফাইলের ম্যাপিং এররটি দূর হয়)
+          codesign --force --deep --sign - Payload/MiniCAD.app/MiniCAD
           
-          zip -r ../MiniCAD_Unsigned.ipa Payload
+          # ৩. ফাইনাল জিপিং টু আইপিএ
+          zip -r ../AutoCAD_Mobile_Fixed.ipa Payload
           
-      - name: Upload Unsigned IPA Artifact
+      - name: Upload Fixed IPA Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AutoCAD-Mobile-Unsigned-IPA
-          path: MiniCAD_Unsigned.ipa
+          name: AutoCAD-Mobile-Fixed-IPA
+          path: AutoCAD_Mobile_Fixed.ipa
