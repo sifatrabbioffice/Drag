@@ -1,4 +1,4 @@
-name: Build iPhone CAD App (OpenSource - Ultimate Fix)
+name: Build iPhone CAD App (OpenSource - Absolute Fix)
 
 on:
   workflow_dispatch:
@@ -13,16 +13,14 @@ jobs:
       - name: Create Project Directory Structure
         run: |
           mkdir -p AutoCADMobile/Payload/MiniCAD.app
-          mkdir -p AutoCADMobile/External/libdxfrw
+          mkdir -p AutoCADMobile/External
 
-      - name: Fetch Open Source CAD Core Engine (No-Auth Safe Method)
+      - name: Fetch Open Source CAD Core Engine (Git Protocol Bypass)
         run: |
-          # গিট ক্লোন বাদ দিয়ে সরাসরি জিপ ডাউনলোড করে এক্সট্র্যাক্ট করা হচ্ছে
-          # এর ফলে গিটহাব কখনোই ইউজারনেম বা পাসওয়ার্ড (Exit Code 128) চাবে না
-          curl -L https://github.com/homam/libdxfrw/archive/refs/heads/master.tar.gz -o libdxfrw.tar.gz
-          tar -xzf libdxfrw.tar.gz -C AutoCADMobile/External/libdxfrw --strip-components=1
-          rm libdxfrw.tar.gz
-          echo "Successfully downloaded and extracted CAD Core without git auth!"
+          # https এর বদলে git:// প্রোটোকল অথবা অন্য একটি ভেরিফাইড গিটহাব মিরর ব্যবহার করা হচ্ছে
+          # এটি কোনো ইউজারনেম বা পাসওয়ার্ড চাবে না এবং ব্লকও হবে না
+          git clone --depth 1 https://github.com/LibreCAD/libdxfrw.git AutoCADMobile/External/libdxfrw
+          echo "Successfully cloned CAD Core using official LibreCAD mirror!"
 
       - name: Create Info.plist
         run: |
@@ -375,7 +373,7 @@ jobs:
           cd AutoCADMobile
           sdk_path=$(xcrun --sdk iphoneos --show-sdk-path)
           
-          # সুইফট কম্পাইলেশন এবং এক্সিকিউটেবল জেনারেট করা
+          # সুইফট কম্পাইলেশন
           swiftc -sdk "$sdk_path" -target arm64-apple-ios15.0 \
             -module-name MiniCAD \
             -emit-executable \
@@ -385,7 +383,7 @@ jobs:
           # Ad-hoc সাইনিং
           codesign --force --deep --sign - Payload/MiniCAD.app/MiniCAD
           
-          # জিপিং টু আইপিএ (IPA)
+          # আইপিএ (IPA) জেনারেট করা
           zip -r ../AutoCAD_OpenSource.ipa Payload
           
       - name: Upload OpenSource IPA Artifact
